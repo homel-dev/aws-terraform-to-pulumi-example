@@ -1,0 +1,38 @@
+---
+region: us-east-1
+approved_ingress_cidrs:
+  # RFC 5737 TEST-NET. Replace before deployment.
+  - 203.0.113.10/32
+alb:
+  public_subnets: [public-a, public-b]
+  tls_policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+application:
+  subnet: app-a
+  port: 8080
+  health_check_path: /
+  instance_type: t3.micro
+  root_volume_gib: 12
+  min_size: 1
+  max_size: 1
+  desired_capacity: 1
+  ami_ssm_parameter: /myorg/poc/use1/ami/application
+  runtime_https_url: https://secureweb.com/
+  bootstrap:
+    # The scenario uses example.com as the external boot dependency.
+    # Replace path/install semantics with the real artifact contract.
+    artifact_url: https://example.com/
+    artifact_path: /var/tmp/customer-module.bin
+    artifact_sha256: ""
+    install_command: install -d -m 0755 /opt/myorg/runtime && install -m 0440 /var/tmp/customer-module.bin /opt/myorg/runtime/customer-module.bin
+    service_name: myorg-poc-app
+database:
+  subnet: database-a
+  port: 3306
+  instance_type: t3.micro
+  root_volume_gib: 20
+  ami_ssm_parameter: /myorg/poc/use1/ami/database
+  name: myorg
+  username: myorg_app
+tags:
+  Project: myorg-aws-poc
+  Purpose: pci-dss-network-control

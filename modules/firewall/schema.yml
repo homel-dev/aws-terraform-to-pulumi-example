@@ -1,0 +1,11 @@
+---
+fields:
+  region: {type: string, required: true}
+  state_bucket_prefix: {type: string}
+  name: {type: string, required: true}
+  application_subnet: {type: string, required: true}
+  firewall_subnet: {type: string, required: true}
+  nat_public_subnet: {type: string, required: true}
+  allowed_tls_domains: {type: list, required: true}
+  log_retention_days: {type: number}
+  tags: {type: map}

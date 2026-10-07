@@ -1,0 +1,9 @@
+---
+region: us-east-1
+images:
+  application:
+    path: images/myorg/poc/use1/application
+    ssm_parameter: /myorg/poc/use1/ami/application
+  database:
+    path: images/myorg/poc/use1/database
+    ssm_parameter: /myorg/poc/use1/ami/database

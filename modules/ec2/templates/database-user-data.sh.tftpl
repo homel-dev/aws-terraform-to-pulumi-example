@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REGION='${region}'
+SECRET_NAME='${secret_name}'
+DATABASE='${database}'
+USERNAME='${username}'
+
+secret_json=""
+if secret_json="$(aws secretsmanager get-secret-value --region "$REGION" --secret-id "$SECRET_NAME" --query SecretString --output text 2>/dev/null)"; then
+  password="$(printf '%s' "$secret_json" | jq -r '.password')"
+else
+  password="$(aws secretsmanager get-random-password --region "$REGION" --password-length 32 --exclude-punctuation --query RandomPassword --output text)"
+  secret_json="$(jq -cn --arg username "$USERNAME" --arg password "$password" --arg database "$DATABASE" '{username:$username,password:$password,database:$database}')"
+  aws secretsmanager put-secret-value --region "$REGION" --secret-id "$SECRET_NAME" --secret-string "$secret_json" >/dev/null
+fi
+
+mysql <<SQL
+CREATE DATABASE IF NOT EXISTS \`$DATABASE\`;
+CREATE USER IF NOT EXISTS '$USERNAME'@'10.%' IDENTIFIED BY '$password';
+ALTER USER '$USERNAME'@'10.%' IDENTIFIED BY '$password';
+GRANT ALL PRIVILEGES ON \`$DATABASE\`.* TO '$USERNAME'@'10.%';
+FLUSH PRIVILEGES;
+SQL
+
+sed -ri 's/^bind-address\s*=.*/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/mysqld.cnf
+systemctl restart mysql

@@ -1,0 +1,6 @@
+---
+defaults:
+  ttl: 300
+  tags:
+    ManagedBy: Terraform
+    Module: route53

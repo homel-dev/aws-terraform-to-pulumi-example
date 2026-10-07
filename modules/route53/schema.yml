@@ -1,0 +1,12 @@
+---
+record_fields:
+  name: {type: string, required: true}
+  type: {type: string, required: true, allowed: [A, AAAA, CNAME, TXT, MX, SRV, CAA, NS]}
+  ttl: {type: number}
+  values: {type: list}
+  alias: {type: map}
+  set_identifier: {type: string}
+  multivalue_answer_routing_policy: {type: bool}
+  health_check_id: {type: string}
+zone_required_tags: [facing]
+zone_facing_allowed: [internal, public]

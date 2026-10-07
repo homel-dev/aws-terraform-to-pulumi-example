@@ -1,0 +1,12 @@
+---
+region: us-east-1
+cidr: 10.42.0.0/16
+subnets:
+  public-a: {type: public, availability_zone: us-east-1a, cidr: 10.42.0.0/24}
+  public-b: {type: public, availability_zone: us-east-1b, cidr: 10.42.1.0/24}
+  app-a: {type: application, availability_zone: us-east-1a, cidr: 10.42.10.0/24}
+  database-a: {type: database, availability_zone: us-east-1a, cidr: 10.42.20.0/24}
+  firewall-a: {type: firewall, availability_zone: us-east-1a, cidr: 10.42.30.0/24}
+tags:
+  Project: myorg-aws-poc
+  Purpose: pci-dss-network-control

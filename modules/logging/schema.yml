@@ -1,0 +1,11 @@
+---
+fields:
+  region: {type: string, required: true}
+  state_bucket_prefix: {type: string}
+  retention_days: {type: number}
+  flow_log_retention_days: {type: number}
+  force_destroy: {type: bool}
+  cloudtrail_enabled: {type: bool}
+  vpc_flow_logs_enabled: {type: bool}
+  alb_access_logs_enabled: {type: bool}
+  tags: {type: map}

@@ -1,0 +1,5 @@
+# Brownfield example only. Do not combine import with redesign.
+# import {
+#   to = module.ec2.aws_instance.database
+#   id = "i-REPLACE_ME"
+# }

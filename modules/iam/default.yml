@@ -1,0 +1,4 @@
+---
+state_bucket_prefix: myorg-aws-terraform-state
+enable_ssm: true
+tags: {}

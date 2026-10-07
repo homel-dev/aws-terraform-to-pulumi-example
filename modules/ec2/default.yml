@@ -1,0 +1,3 @@
+---
+state_bucket_prefix: myorg-aws-terraform-state
+tags: {}

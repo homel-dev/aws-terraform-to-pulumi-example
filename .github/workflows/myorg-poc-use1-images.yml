@@ -1,0 +1,51 @@
+name: MyOrg POC use1 Images
+
+on:
+  pull_request:
+    paths:
+      - 'images/myorg/poc/use1/**'
+      - 'deployments/myorg/poc/use1/ci/images.*'
+      - '.github/workflows/myorg-poc-use1-images.yml'
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Image to build
+        required: true
+        type: choice
+        options: [application, database, all]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: hashicorp/setup-packer@ce93c3c08a6c2ff2275bf4b54ff0d9a75f6c9789
+        with:
+          version: 1.16.1
+      - name: Validate image definitions
+        shell: bash
+        run: bash deployments/myorg/poc/use1/ci/images.sh validate all
+
+  build:
+    if: github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-24.04
+    environment: myorg-poc-use1-images
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: hashicorp/setup-packer@ce93c3c08a6c2ff2275bf4b54ff0d9a75f6c9789
+        with:
+          version: 1.16.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
+        with:
+          role-to-assume: ${{ vars.AWS_IMAGE_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Build and publish AMI
+        shell: bash
+        run: bash deployments/myorg/poc/use1/ci/images.sh build "${{ inputs.image }}"

@@ -1,0 +1,9 @@
+---
+fields:
+  region: {type: string, required: true}
+  state_bucket_prefix: {type: string, required: true}
+  mode: {type: string, required: true, allowed: [managed_dns, imported]}
+  domain_name: {type: string}
+  zone_name: {type: string}
+  certificate_arn: {type: string}
+  tags: {type: map}

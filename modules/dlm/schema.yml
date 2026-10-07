@@ -1,0 +1,9 @@
+---
+fields:
+  region: {type: string, required: true}
+  enabled: {type: bool}
+  interval_hours: {type: number}
+  times: {type: list}
+  retain_count: {type: number}
+  target_tags: {type: map, required: true}
+  tags: {type: map}

@@ -1,0 +1,7 @@
+---
+enabled: true
+interval_hours: 24
+times: ["03:00"]
+retain_count: 7
+target_tags: {Backup: dlm}
+tags: {}

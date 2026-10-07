@@ -1,0 +1,12 @@
+data "aws_caller_identity" "current" {}
+
+data "terraform_remote_state" "route53" {
+  count   = length(local.managed_certificates) > 0 ? 1 : 0
+  backend = "s3"
+
+  config = {
+    bucket = "${local.state_bucket_prefix}-${data.aws_caller_identity.current.account_id}"
+    key    = "${local.path_prefix}/route53/terraform.tfstate"
+    region = local.region
+  }
+}

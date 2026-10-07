@@ -1,0 +1,12 @@
+---
+fields:
+  region:
+    type: string
+    required: true
+  bucket_prefix:
+    type: string
+    required: true
+  force_destroy:
+    type: bool
+  tags:
+    type: map

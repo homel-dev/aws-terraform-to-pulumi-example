@@ -1,0 +1,5 @@
+---
+region: us-east-1
+bucket_prefix: myorg-aws-terraform-state
+force_destroy: false
+tags: {}

@@ -1,0 +1,9 @@
+---
+fields:
+  region: {type: string, required: true}
+  state_bucket_prefix: {type: string}
+  approved_ingress_cidrs: {type: list, required: true}
+  alb: {type: map, required: true}
+  application: {type: map, required: true}
+  database: {type: map, required: true}
+  tags: {type: map}

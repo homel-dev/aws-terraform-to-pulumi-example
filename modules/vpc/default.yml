@@ -1,0 +1,5 @@
+---
+state_bucket_prefix: myorg-aws-terraform-state
+enable_dns_support: true
+enable_dns_hostnames: true
+tags: {}

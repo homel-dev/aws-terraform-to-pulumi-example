@@ -1,0 +1,38 @@
+version: '3'
+
+vars:
+  LOCATION: deployments/myorg/poc/use1
+
+tasks:
+  ci:validate:
+    desc: Validate YAML/domain invariants and Terraform roots
+    cmds:
+      - ruby scripts/validate-config.rb {{.LOCATION}}
+      - bash {{.LOCATION}}/ci/run.sh validate
+
+  tf:plan:
+    desc: Plan one use1 stack
+    requires:
+      vars: [STACK]
+    cmds:
+      - bash {{.LOCATION}}/ci/run.sh plan {{.STACK}}
+
+  tf:apply:
+    desc: Apply one use1 stack
+    requires:
+      vars: [STACK]
+    cmds:
+      - bash {{.LOCATION}}/ci/run.sh apply {{.STACK}}
+
+  image:validate:
+    desc: Validate both Packer image definitions
+    cmds:
+      - bash {{.LOCATION}}/ci/images.sh validate all
+
+  image:build:
+    desc: Build one Packer image and publish its AMI ID to SSM
+    requires:
+      vars: [IMAGE]
+    cmds:
+      - bash {{.LOCATION}}/ci/images.sh build {{.IMAGE}}
+

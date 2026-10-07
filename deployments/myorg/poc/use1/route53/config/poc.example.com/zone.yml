@@ -1,0 +1,9 @@
+---
+zone:
+  comment: "MyOrg POC public zone. Replace poc.example.com with a delegated domain before managed ACM validation."
+  private: false
+  force_destroy: false
+  tags:
+    facing: public
+    Project: myorg-aws-poc
+    Purpose: pci-dss-network-control
