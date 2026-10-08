@@ -10,9 +10,5 @@ terraform {
       source  = "tlkamp/validation"
       version = "= 1.1.3"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "= 3.7.1"
-    }
   }
 }

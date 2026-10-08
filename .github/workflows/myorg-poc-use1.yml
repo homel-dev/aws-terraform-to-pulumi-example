@@ -5,83 +5,210 @@ on:
     paths:
       - 'deployments/myorg/poc/use1/**'
       - 'modules/**'
-      - 'scripts/**'
       - '.github/workflows/myorg-poc-use1.yml'
-      - 'Taskfile.yml'
+      - '.github/workflows/_terraform-stack.yml'
   workflow_dispatch:
     inputs:
-      operation:
-        description: Terraform operation
+      mode:
+        description: Plan, apply selected stack, or deploy the full location DAG
         required: true
         type: choice
-        options: [plan, apply]
+        options: [plan, apply, full]
       stack:
-        description: Terraform stack
+        description: Selected Terraform stack (ignored in full mode)
         required: true
         type: choice
-        options:
-          - terraform-state
-          - vpc
-          - iam
-          - logging
-          - route53
-          - acm
-          - firewall
-          - ec2
-          - dlm
+        options: [terraform-state, vpc, iam, logging, route53, acm, firewall, ec2, dlm]
 
 permissions:
   contents: read
 
 jobs:
+  fmt:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
+        with: {terraform_version: 1.16.5}
+      - run: terraform fmt -check -recursive
+
   validate:
+    needs: fmt
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [terraform-state, vpc, iam, logging, route53, acm, firewall, ec2, dlm]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
-        with:
-          terraform_version: 1.16.5
-      - name: Validate use1 Terraform
-        shell: bash
-        run: bash deployments/myorg/poc/use1/ci/run.sh validate
+        with: {terraform_version: 1.16.5}
+      - run: terraform -chdir="deployments/myorg/poc/use1/${{ matrix.stack }}" init -backend=false -input=false
+      - run: terraform -chdir="deployments/myorg/poc/use1/${{ matrix.stack }}" validate
 
-  plan:
-    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'plan'
-    needs: validate
+  changes:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      id-token: write
+      pull-requests: read
+    outputs:
+      common: ${{ steps.filter.outputs.common }}
+      state: ${{ steps.filter.outputs.state }}
+      vpc: ${{ steps.filter.outputs.vpc }}
+      iam: ${{ steps.filter.outputs.iam }}
+      logging: ${{ steps.filter.outputs.logging }}
+      route53: ${{ steps.filter.outputs.route53 }}
+      acm: ${{ steps.filter.outputs.acm }}
+      firewall: ${{ steps.filter.outputs.firewall }}
+      ec2: ${{ steps.filter.outputs.ec2 }}
+      dlm: ${{ steps.filter.outputs.dlm }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        id: filter
         with:
-          terraform_version: 1.16.5
-      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: us-east-1
-      - name: Plan selected stack
-        shell: bash
-        run: bash deployments/myorg/poc/use1/ci/run.sh plan '${{ inputs.stack }}'
+          filters: |
+            common:
+              - '.github/workflows/_terraform-stack.yml'
+              - '.github/workflows/myorg-poc-use1.yml'
+            state:
+              - 'deployments/myorg/poc/use1/terraform-state/**'
+              - 'modules/terraform-state/**'
+            vpc:
+              - 'deployments/myorg/poc/use1/vpc/**'
+              - 'modules/vpc/**'
+            iam:
+              - 'deployments/myorg/poc/use1/iam/**'
+              - 'modules/iam/**'
+            logging:
+              - 'deployments/myorg/poc/use1/logging/**'
+              - 'modules/logging/**'
+            route53:
+              - 'deployments/myorg/poc/use1/route53/**'
+              - 'modules/route53/**'
+            acm:
+              - 'deployments/myorg/poc/use1/acm/**'
+              - 'modules/acm/**'
+            firewall:
+              - 'deployments/myorg/poc/use1/firewall/**'
+              - 'modules/firewall/**'
+            ec2:
+              - 'deployments/myorg/poc/use1/ec2/**'
+              - 'modules/ec2/**'
+            dlm:
+              - 'deployments/myorg/poc/use1/dlm/**'
+              - 'modules/dlm/**'
 
-  apply:
-    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'apply'
+  # PR plans read already-deployed remote states; the filters include all
+  # downstream consumers of a changed output-producing stack.
+  pr-state:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: terraform-state, operation: plan}
+    permissions: {contents: read, id-token: write}
+  pr-vpc:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true' || needs.changes.outputs.vpc == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: vpc, operation: plan}
+    permissions: {contents: read, id-token: write}
+  pr-iam:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true' || needs.changes.outputs.iam == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: iam, operation: plan}
+    permissions: {contents: read, id-token: write}
+  pr-route53:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true' || needs.changes.outputs.route53 == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: route53, operation: plan}
+    permissions: {contents: read, id-token: write}
+  pr-logging:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true' || needs.changes.outputs.vpc == 'true' || needs.changes.outputs.logging == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: logging, operation: plan}
+    permissions: {contents: read, id-token: write}
+  pr-acm:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true' || needs.changes.outputs.route53 == 'true' || needs.changes.outputs.acm == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: acm, operation: plan}
+    permissions: {contents: read, id-token: write}
+  pr-firewall:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true' || needs.changes.outputs.vpc == 'true' || needs.changes.outputs.firewall == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: firewall, operation: plan}
+    permissions: {contents: read, id-token: write}
+  pr-ec2:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true' || needs.changes.outputs.vpc == 'true' || needs.changes.outputs.iam == 'true' || needs.changes.outputs.logging == 'true' || needs.changes.outputs.route53 == 'true' || needs.changes.outputs.acm == 'true' || needs.changes.outputs.firewall == 'true' || needs.changes.outputs.ec2 == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: ec2, operation: plan}
+    permissions: {contents: read, id-token: write}
+  pr-dlm:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true' || needs.changes.outputs.vpc == 'true' || needs.changes.outputs.iam == 'true' || needs.changes.outputs.logging == 'true' || needs.changes.outputs.route53 == 'true' || needs.changes.outputs.acm == 'true' || needs.changes.outputs.firewall == 'true' || needs.changes.outputs.ec2 == 'true' || needs.changes.outputs.dlm == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: dlm, operation: plan}
+    permissions: {contents: read, id-token: write}
+
+  selected-stack:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode != 'full'
     needs: validate
-    runs-on: ubuntu-24.04
-    environment: myorg-poc-use1
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
-        with:
-          terraform_version: 1.16.5
-      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: us-east-1
-      - name: Apply selected stack
-        shell: bash
-        run: bash deployments/myorg/poc/use1/ci/run.sh apply '${{ inputs.stack }}'
+    uses: ./.github/workflows/_terraform-stack.yml
+    with:
+      stack: ${{ inputs.stack }}
+      operation: ${{ inputs.mode }}
+    permissions: {contents: read, id-token: write}
+
+  # Full location: each needs edge orders jobs without touching the predecessor's state.
+  state:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'full'
+    needs: validate
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: terraform-state, operation: apply}
+    permissions: {contents: read, id-token: write}
+  vpc:
+    needs: state
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: vpc, operation: apply}
+    permissions: {contents: read, id-token: write}
+  iam:
+    needs: state
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: iam, operation: apply}
+    permissions: {contents: read, id-token: write}
+  route53:
+    needs: state
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: route53, operation: apply}
+    permissions: {contents: read, id-token: write}
+  logging:
+    needs: [state, vpc]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: logging, operation: apply}
+    permissions: {contents: read, id-token: write}
+  acm:
+    needs: [state, route53]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: acm, operation: apply}
+    permissions: {contents: read, id-token: write}
+  firewall:
+    needs: [state, vpc]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: firewall, operation: apply}
+    permissions: {contents: read, id-token: write}
+  ec2:
+    needs: [state, vpc, iam, logging, acm, firewall]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: ec2, operation: apply}
+    permissions: {contents: read, id-token: write}
+  dlm:
+    needs: [state, ec2]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: dlm, operation: apply}
+    permissions: {contents: read, id-token: write}

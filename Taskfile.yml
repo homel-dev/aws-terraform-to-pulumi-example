@@ -5,34 +5,52 @@ vars:
 
 tasks:
   ci:validate:
-    desc: Validate YAML/domain invariants and Terraform roots
+    desc: Format-check and validate each Terraform root without AWS credentials
     cmds:
-      - ruby scripts/validate-config.rb {{.LOCATION}}
-      - bash {{.LOCATION}}/ci/run.sh validate
+      - terraform fmt -check -recursive
+      - |
+        for root in {{.LOCATION}}/*/main.tf; do
+          stack_dir="${root%/main.tf}"
+          terraform -chdir="$stack_dir" init -backend=false -input=false
+          terraform -chdir="$stack_dir" validate
+        done
 
   tf:plan:
-    desc: Plan one use1 stack
+    desc: Save a reviewable plan for an existing S3-backed stack
     requires:
       vars: [STACK]
     cmds:
-      - bash {{.LOCATION}}/ci/run.sh plan {{.STACK}}
+      - terraform -chdir={{.LOCATION}}/{{.STACK}} init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
+      - terraform -chdir={{.LOCATION}}/{{.STACK}} plan -input=false -out=tfplan
 
   tf:apply:
-    desc: Apply one use1 stack
+    desc: Apply the exact existing tfplan in the selected stack
     requires:
       vars: [STACK]
     cmds:
-      - bash {{.LOCATION}}/ci/run.sh apply {{.STACK}}
+      - terraform -chdir={{.LOCATION}}/{{.STACK}} init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
+      - terraform -chdir={{.LOCATION}}/{{.STACK}} apply -input=false tfplan
 
   image:validate:
     desc: Validate both Packer image definitions
     cmds:
-      - bash {{.LOCATION}}/ci/images.sh validate all
+      - |
+        for image in application database; do
+          (cd images/myorg/poc/use1/"$image" &&
+            packer init . &&
+            packer fmt -check . &&
+            packer validate -syntax-only -var-file=config/image.pkrvars.hcl .)
+        done
 
   image:build:
     desc: Build one Packer image and publish its AMI ID to SSM
     requires:
       vars: [IMAGE]
     cmds:
-      - bash {{.LOCATION}}/ci/images.sh build {{.IMAGE}}
+      - |
+        cd images/myorg/poc/use1/{{.IMAGE}}
+        packer init .
+        packer build -var-file=config/image.pkrvars.hcl .
+        ami_id="$(jq -r '.builds[-1].artifact_id | split(":")[-1]' manifest.json)"
+        aws ssm put-parameter --region us-east-1 --name /myorg/poc/use1/ami/{{.IMAGE}} --type String --value "$ami_id" --overwrite
 

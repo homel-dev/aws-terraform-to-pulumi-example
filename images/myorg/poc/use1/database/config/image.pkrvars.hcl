@@ -1,0 +1,5 @@
+region           = "us-east-1"
+instance_type    = "t3.micro"
+source_ami_owner = "099720109477"
+source_ami_name  = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"
+ami_name_prefix  = "myorg-poc-use1-database"

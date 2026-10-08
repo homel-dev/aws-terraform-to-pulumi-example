@@ -4,7 +4,7 @@ resource "aws_route53_zone" "this" {
   name          = each.value.name
   comment       = try(each.value.comment, null)
   force_destroy = try(each.value.force_destroy, false)
-  tags          = merge(local.defaults.tags, try(each.value.tags, {}))
+  tags          = merge(local.common_tags, try(each.value.tags, {}))
 
   dynamic "vpc" {
     for_each = try(each.value.private, false) ? try(each.value.vpc_associations, []) : []

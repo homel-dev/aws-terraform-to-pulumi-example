@@ -16,11 +16,6 @@ For the POC, `use1` maps to AWS `us-east-1`:
 
 ```text
 deployments/myorg/poc/use1/
-├── ci/
-│   ├── images.yml
-│   ├── images.sh
-│   ├── order.yml
-│   └── run.sh
 ├── terraform-state/
 ├── vpc/
 ├── iam/
@@ -53,7 +48,7 @@ The `terraform-state` stack bootstraps the S3 bucket locally on first creation a
 
 ## Stack ordering versus Terraform dependencies
 
-`deployments/myorg/poc/use1/ci/config.yml` is only the **first-deployment/apply order** used by the location-local CI helper. It is not a Terraform dependency graph and it does not cause Terraform to recreate upstream stacks.
+The first-deployment DAG is declared in `.github/workflows/myorg-poc-use1.yml` through GitHub Actions `needs` edges. It orders jobs without causing one Terraform root to plan or apply another root.
 
 Cross-stack data is read explicitly with `terraform_remote_state`. For example, the firewall stack reads VPC outputs. If the VPC state already exists and has no changes, applying firewall does not apply or recreate the VPC. If the VPC state does not exist yet, the firewall plan fails because its required inputs are unavailable.
 
@@ -95,22 +90,25 @@ The Packer builders use the POC VPC public subnet, so first deployment is intent
 10. dlm
 ```
 
-The location stack registry is [`deployments/myorg/poc/use1/ci/config.yml`](deployments/myorg/poc/use1/ci/config.yml). The first-deployment order is documented here; image creation is a separate pipeline between `vpc` and the remaining runtime stacks.
+The stack order is visible in [the location workflow](.github/workflows/myorg-poc-use1.yml). The image workflow is separate: application and database AMIs must already have been built and published to SSM before `ec2` is deployed.
 
 The order exists because downstream stacks consume outputs from already-created remote states. It is not lifecycle coupling between their states.
 
 ## GitHub Actions
 
-GitHub executes workflows only from `.github/workflows/`. The repository therefore keeps thin GitHub entry points there while the location-specific execution logic lives under `deployments/myorg/poc/use1/ci/`.
+GitHub Actions workflows declare their own orchestration. [`_terraform-stack.yml`](.github/workflows/_terraform-stack.yml) is the reusable implementation for one Terraform root: format/init/validate, plan to an artifact, protected-environment approval, then apply of the exact saved plan.
 
 Required GitHub variables:
 
 - `AWS_ROLE_ARN` — OIDC role for Terraform plan/apply;
 - `AWS_IMAGE_ROLE_ARN` — OIDC role for Packer builds.
+- `TF_STATE_BUCKET` — existing or to-be-created S3 state bucket, named `myorg-aws-terraform-state-<AWS-account-id>`.
 
 `apply` uses the protected GitHub Environment `myorg-poc-use1`.
 
-The Terraform workflow plans or applies one selected stack at a time. This makes each state boundary explicit and prevents a CI helper from hiding cross-stack changes. The separate image workflow builds and publishes AMI IDs.
+Pull requests format-check and validate every Terraform root without AWS credentials, then plan changed roots and downstream consumers against deployed remote-state outputs using OIDC. The manual `plan` and `apply` modes operate on one selected root; `full` deploys the location DAG. Each apply waits for the `myorg-poc-use1` protected GitHub Environment and consumes the plan artifact produced earlier in the same workflow run. Saved Terraform plans can contain sensitive data; artifact retention is one day. An initial `terraform-state` apply creates the bucket with local state and migrates that state to S3.
+
+Packer reads `config/image.pkrvars.hcl` directly. The image workflow validates both templates and can build either or both AMIs; builds publish their IDs to SSM. No YAML interpreter or CI driver script is involved.
 
 ## Local validation
 

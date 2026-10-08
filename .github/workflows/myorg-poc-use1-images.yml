@@ -4,12 +4,11 @@ on:
   pull_request:
     paths:
       - 'images/myorg/poc/use1/**'
-      - 'deployments/myorg/poc/use1/ci/images.*'
       - '.github/workflows/myorg-poc-use1-images.yml'
   workflow_dispatch:
     inputs:
       image:
-        description: Image to build
+        description: Packer image to build
         required: true
         type: choice
         options: [application, database, all]
@@ -18,34 +17,76 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  validate-application:
     runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: images/myorg/poc/use1/application
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: hashicorp/setup-packer@ce93c3c08a6c2ff2275bf4b54ff0d9a75f6c9789
-        with:
-          version: 1.16.1
-      - name: Validate image definitions
-        shell: bash
-        run: bash deployments/myorg/poc/use1/ci/images.sh validate all
+        with: {version: 1.16.1}
+      - run: packer init .
+      - run: packer fmt -check .
+      - run: packer validate -syntax-only -var-file=config/image.pkrvars.hcl .
 
-  build:
-    if: github.event_name == 'workflow_dispatch'
-    needs: validate
+  validate-database:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: images/myorg/poc/use1/database
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: hashicorp/setup-packer@ce93c3c08a6c2ff2275bf4b54ff0d9a75f6c9789
+        with: {version: 1.16.1}
+      - run: packer init .
+      - run: packer fmt -check .
+      - run: packer validate -syntax-only -var-file=config/image.pkrvars.hcl .
+
+  build-application:
+    if: github.event_name == 'workflow_dispatch' && (inputs.image == 'application' || inputs.image == 'all')
+    needs: validate-application
     runs-on: ubuntu-24.04
     environment: myorg-poc-use1-images
-    permissions:
-      contents: read
-      id-token: write
+    permissions: {contents: read, id-token: write}
+    defaults:
+      run:
+        working-directory: images/myorg/poc/use1/application
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: hashicorp/setup-packer@ce93c3c08a6c2ff2275bf4b54ff0d9a75f6c9789
-        with:
-          version: 1.16.1
+        with: {version: 1.16.1}
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
         with:
           role-to-assume: ${{ vars.AWS_IMAGE_ROLE_ARN }}
           aws-region: us-east-1
-      - name: Build and publish AMI
-        shell: bash
-        run: bash deployments/myorg/poc/use1/ci/images.sh build "${{ inputs.image }}"
+      - run: packer init .
+      - run: packer build -var-file=config/image.pkrvars.hcl .
+      - name: Publish application AMI ID
+        run: |
+          ami_id="$(jq -r '.builds[-1].artifact_id | split(":")[-1]' manifest.json)"
+          aws ssm put-parameter --region us-east-1 --name /myorg/poc/use1/ami/application --type String --value "$ami_id" --overwrite
+
+  build-database:
+    if: github.event_name == 'workflow_dispatch' && (inputs.image == 'database' || inputs.image == 'all')
+    needs: validate-database
+    runs-on: ubuntu-24.04
+    environment: myorg-poc-use1-images
+    permissions: {contents: read, id-token: write}
+    defaults:
+      run:
+        working-directory: images/myorg/poc/use1/database
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: hashicorp/setup-packer@ce93c3c08a6c2ff2275bf4b54ff0d9a75f6c9789
+        with: {version: 1.16.1}
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
+        with:
+          role-to-assume: ${{ vars.AWS_IMAGE_ROLE_ARN }}
+          aws-region: us-east-1
+      - run: packer init .
+      - run: packer build -var-file=config/image.pkrvars.hcl .
+      - name: Publish database AMI ID
+        run: |
+          ami_id="$(jq -r '.builds[-1].artifact_id | split(":")[-1]' manifest.json)"
+          aws ssm put-parameter --region us-east-1 --name /myorg/poc/use1/ami/database --type String --value "$ami_id" --overwrite

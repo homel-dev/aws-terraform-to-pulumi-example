@@ -317,7 +317,6 @@ myorg-aws/
 │   └── myorg/
 │       └── poc/
 │           └── use1/
-│               ├── ci/
 │               ├── terraform-state/
 │               ├── vpc/
 │               ├── iam/
@@ -352,11 +351,11 @@ The `terraform-state` stack initially uses local state only for the first bucket
 
 **Images:** Packer builds generic application and MySQL base AMIs. Successful builds publish the AMI IDs to SSM Parameter Store; the `ec2` stack consumes those parameter paths. The application image pipeline MUST NOT retrieve the protected boot artifact.
 
-**CI:** GitHub requires executable workflow entry points under `.github/workflows/`. Those entry points MUST remain thin; location-specific stack registry and execution logic live under `deployments/myorg/poc/use1/ci/`. The location CI config is orchestration metadata only; it is not a Terraform resource dependency graph and does not authorize upstream recreation.
+**CI:** The location workflow under `.github/workflows/` contains the explicit job DAG and path filters. The reusable `_terraform-stack.yml` workflow operates on exactly one Terraform root and its state, saving `tfplan` and applying that same artifact only after protected-environment approval. PR validation needs no AWS credentials; PR plans use OIDC and the deployed upstream state. Packer image configuration is read from `config/image.pkrvars.hcl`, not a CI YAML registry.
 
 The minimum Terraform path is `fmt -> init -> validate -> plan -> reviewed apply`.
 
-- Pull-request validation MUST NOT require AWS production credentials.
+- Pull-request `fmt`/`validate` MUST NOT require AWS credentials; PR `plan` requires OIDC read access to AWS state.
 - AWS plan/apply uses GitHub OIDC and minimum practical role permissions.
 - Apply uses a protected GitHub Environment/reviewer boundary.
 - Third-party GitHub Actions MUST be pinned to full commit SHAs.
