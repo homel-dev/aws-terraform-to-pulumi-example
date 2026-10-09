@@ -54,3 +54,8 @@ tasks:
         ami_id="$(jq -r '.builds[-1].artifact_id | split(":")[-1]' manifest.json)"
         aws ssm put-parameter --region us-east-1 --name /myorg/poc/use1/ami/{{.IMAGE}} --type String --value "$ami_id" --overwrite
 
+  architecture:modernized:
+    desc: Generate modernized Pulumi target architecture SVG locally without AWS
+    cmds:
+      - .venv/bin/python scripts/build-modernized-architecture-graph.py --output docs/architecture/myorg-poc-use1-modernized.tvg.json
+      - .venv/bin/terravision draw --source docs/architecture/myorg-poc-use1-modernized.tvg.json --format svg --outfile docs/architecture/myorg-poc-use1-modernized --title 'MyOrg POC use1 - Modernized Pulumi (planned)'
