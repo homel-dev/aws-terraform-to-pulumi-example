@@ -15,12 +15,12 @@ resource "aws_route53_record" "validation" {
     for item in flatten([
       for id, certificate in aws_acm_certificate.managed : [
         for option in certificate.domain_validation_options : {
-          key      = "${id}/${option.domain_name}"
-          cert_id  = id
-          zone     = local.managed_certificates[id].zone_name
-          name     = option.resource_record_name
-          record   = option.resource_record_value
-          type     = option.resource_record_type
+          key     = "${id}/${option.domain_name}"
+          cert_id = id
+          zone    = local.managed_certificates[id].zone_name
+          name    = option.resource_record_name
+          record  = option.resource_record_value
+          type    = option.resource_record_type
         }
       ]
     ]) : item.key => item

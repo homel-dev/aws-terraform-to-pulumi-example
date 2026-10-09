@@ -2,16 +2,16 @@ output "computes" {
   description = "Compute bundles keyed by YAML filename."
   value = {
     for id, alb in aws_lb.this : id => {
-      alb_dns_name = aws_lb.this[id].dns_name
-      alb_zone_id = aws_lb.this[id].zone_id
-      alb_arn = aws_lb.this[id].arn
+      alb_dns_name                   = aws_lb.this[id].dns_name
+      alb_zone_id                    = aws_lb.this[id].zone_id
+      alb_arn                        = aws_lb.this[id].arn
       approved_client_prefix_list_id = aws_ec2_managed_prefix_list.approved_clients[id].id
-      application_asg_name = aws_autoscaling_group.application[id].name
-      application_security_group_id = aws_security_group.application[id].id
-      database_instance_id = aws_instance.database[id].id
-      database_security_group_id = aws_security_group.database[id].id
-      database_secret_arn = aws_secretsmanager_secret.database[id].arn
-      endpoint_security_group_id = aws_security_group.endpoints[id].id
+      application_asg_name           = aws_autoscaling_group.application[id].name
+      application_security_group_id  = aws_security_group.application[id].id
+      database_instance_id           = aws_instance.database[id].id
+      database_security_group_id     = aws_security_group.database[id].id
+      database_secret_arn            = aws_secretsmanager_secret.database[id].arn
+      endpoint_security_group_id     = aws_security_group.endpoints[id].id
     }
   }
 }

@@ -11,12 +11,12 @@ locals {
   path_prefix   = join("/", local.deployment)
 
   common_tags = merge(try(local.configs["instances"].tags, {}), {
-      BusinessUnit = local.business_unit
-      Environment  = local.environment
-      Location     = local.location
-      Region       = local.region
-      Stack        = local.stack_name
-      Module       = local.module_name
-      ManagedBy    = "Terraform"
+    BusinessUnit = local.business_unit
+    Environment  = local.environment
+    Location     = local.location
+    Region       = local.region
+    Stack        = local.stack_name
+    Module       = local.module_name
+    ManagedBy    = "Terraform"
   })
 }

@@ -14,7 +14,7 @@ locals {
   }
 
   iam_suffixes = { for id, _ in local.configs : id => id == "instances" ? "" : "-${id}" }
-  ssm_configs = { for id, config in local.configs : id => config if config.enable_ssm }
+  ssm_configs  = { for id, config in local.configs : id => config if config.enable_ssm }
 }
 
 data "validation_error" "config_present" {

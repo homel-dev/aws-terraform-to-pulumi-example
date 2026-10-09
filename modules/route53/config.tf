@@ -14,7 +14,7 @@ locals {
   records_raw = flatten([
     for dir in local.zone_dirs : [
       for filename in fileset("${local.config_base_dir}/${dir}/records", "*.yml") : {
-        zone   = trimsuffix(basename(dir), "/")
+        zone = trimsuffix(basename(dir), "/")
         record = merge(
           { ttl = local.defaults.ttl },
           yamldecode(file("${local.config_base_dir}/${dir}/records/${filename}")).record

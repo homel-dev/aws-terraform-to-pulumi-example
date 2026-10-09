@@ -17,20 +17,20 @@ locals {
       for field, props in local.schema.record_fields : field
       if contains(keys(config), field) && (
         props.type == "string" && !can(tostring(config[field])) ||
-        props.type == "bool"   && !can(tobool(config[field])) ||
+        props.type == "bool" && !can(tobool(config[field])) ||
         props.type == "number" && !can(tonumber(config[field])) ||
-        props.type == "map"    && !can(keys(config[field])) ||
-        props.type == "list"   && !can(tolist(config[field]))
+        props.type == "map" && !can(keys(config[field])) ||
+        props.type == "list" && !can(tolist(config[field]))
       )
     ]
     if length([
       for field, props in local.schema.record_fields : field
       if contains(keys(config), field) && (
         props.type == "string" && !can(tostring(config[field])) ||
-        props.type == "bool"   && !can(tobool(config[field])) ||
+        props.type == "bool" && !can(tobool(config[field])) ||
         props.type == "number" && !can(tonumber(config[field])) ||
-        props.type == "map"    && !can(keys(config[field])) ||
-        props.type == "list"   && !can(tolist(config[field]))
+        props.type == "map" && !can(keys(config[field])) ||
+        props.type == "list" && !can(tolist(config[field]))
       )
     ]) > 0
   }

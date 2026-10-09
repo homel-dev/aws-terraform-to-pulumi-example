@@ -17,20 +17,20 @@ locals {
       for field, props in local.schema.fields : field
       if contains(keys(config), field) && (
         props.type == "string" && !can(tostring(config[field])) ||
-        props.type == "bool"   && !can(tobool(config[field])) ||
+        props.type == "bool" && !can(tobool(config[field])) ||
         props.type == "number" && !can(tonumber(config[field])) ||
-        props.type == "map"    && !can(keys(config[field])) ||
-        props.type == "list"   && !can(tolist(config[field]))
+        props.type == "map" && !can(keys(config[field])) ||
+        props.type == "list" && !can(tolist(config[field]))
       )
     ]
     if length([
       for field, props in local.schema.fields : field
       if contains(keys(config), field) && (
         props.type == "string" && !can(tostring(config[field])) ||
-        props.type == "bool"   && !can(tobool(config[field])) ||
+        props.type == "bool" && !can(tobool(config[field])) ||
         props.type == "number" && !can(tonumber(config[field])) ||
-        props.type == "map"    && !can(keys(config[field])) ||
-        props.type == "list"   && !can(tolist(config[field]))
+        props.type == "map" && !can(keys(config[field])) ||
+        props.type == "list" && !can(tolist(config[field]))
       )
     ]) > 0
   }
@@ -48,9 +48,9 @@ locals {
 
   invalid_mode_contract = {
     for id, config in local.certificates : id => config.mode
-    if (
+    if(
       config.mode == "managed_dns" && (try(config.domain_name, "") == "" || try(config.zone_name, "") == "")
-    ) || (
+      ) || (
       config.mode == "imported" && try(config.certificate_arn, "") == ""
     )
   }
