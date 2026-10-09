@@ -4,6 +4,10 @@ This branch extends the existing `myorg/poc/use1` Terraform location. It does
 not introduce another Terraform state root. The EC2 MySQL instance and its DLM
 snapshot policy remain managed until a separately approved retirement.
 
+RDS, WAF and GuardDuty are independent reusable child modules at `modules/rds`,
+`modules/waf` and `modules/guardduty`. Existing `ec2` and `logging` roots call
+them without introducing any new backend or Terraform state file.
+
 ## Terraform resources and ordering
 
 1. Apply `deployments/myorg/poc/use1/vpc` to add the private `database-b`
@@ -33,11 +37,16 @@ before running the apply:
 
 ```bash
 terraform -chdir=deployments/myorg/poc/use1/logging import \
-  module.logging.aws_guardduty_detector.regional DETECTOR_ID
+  module.logging.module.guardduty.aws_guardduty_detector.regional DETECTOR_ID
 ```
 
 If no detector exists, the logging Terraform root creates it. Never enable a
 second detector via another Terraform state root in the same account/Region.
+
+If an earlier version of the audit-hardening patch was already applied, the
+`moved` blocks in the `ec2` and `logging` modules preserve existing Terraform
+resource addresses on the first plan after this refactor. Review that plan and
+confirm the RDS, WAF and GuardDuty resources are not scheduled for replacement.
 
 ## Planned MySQL cutover (requires downtime)
 

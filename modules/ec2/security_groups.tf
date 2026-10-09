@@ -38,14 +38,6 @@ resource "aws_security_group" "database" {
   tags        = merge(local.common_tags, try(each.value.tags, {}))
 }
 
-resource "aws_security_group" "rds" {
-  for_each    = local.configs
-  name        = "${local.name_prefixes[each.key]}-rds"
-  description = "Private managed MySQL; application and migration source only"
-  vpc_id      = local.vpc_states[each.key].vpc_id
-  tags        = merge(local.common_tags, try(each.value.tags, {}))
-}
-
 resource "aws_security_group" "endpoints" {
   for_each    = local.configs
   name        = "${local.name_prefixes[each.key]}-endpoints"
@@ -97,7 +89,7 @@ resource "aws_vpc_security_group_egress_rule" "application_to_database" {
 resource "aws_vpc_security_group_egress_rule" "application_to_rds" {
   for_each                     = local.configs
   security_group_id            = aws_security_group.application[each.key].id
-  referenced_security_group_id = aws_security_group.rds[each.key].id
+  referenced_security_group_id = module.rds[each.key].security_group_id
   ip_protocol                  = "tcp"
   from_port                    = each.value.database.port
   to_port                      = each.value.database.port
@@ -107,31 +99,11 @@ resource "aws_vpc_security_group_egress_rule" "application_to_rds" {
 resource "aws_vpc_security_group_egress_rule" "database_to_rds" {
   for_each                     = local.configs
   security_group_id            = aws_security_group.database[each.key].id
-  referenced_security_group_id = aws_security_group.rds[each.key].id
+  referenced_security_group_id = module.rds[each.key].security_group_id
   ip_protocol                  = "tcp"
   from_port                    = each.value.database.port
   to_port                      = each.value.database.port
   description                  = "EC2 MySQL source to RDS during migration"
-}
-
-resource "aws_vpc_security_group_ingress_rule" "rds_from_application" {
-  for_each                     = local.configs
-  security_group_id            = aws_security_group.rds[each.key].id
-  referenced_security_group_id = aws_security_group.application[each.key].id
-  ip_protocol                  = "tcp"
-  from_port                    = each.value.database.port
-  to_port                      = each.value.database.port
-  description                  = "Application to managed MySQL"
-}
-
-resource "aws_vpc_security_group_ingress_rule" "rds_from_database" {
-  for_each                     = local.configs
-  security_group_id            = aws_security_group.rds[each.key].id
-  referenced_security_group_id = aws_security_group.database[each.key].id
-  ip_protocol                  = "tcp"
-  from_port                    = each.value.database.port
-  to_port                      = each.value.database.port
-  description                  = "MySQL data migration from existing EC2"
 }
 
 resource "aws_vpc_security_group_egress_rule" "application_https" {

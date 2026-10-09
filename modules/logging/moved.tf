@@ -52,3 +52,8 @@ moved {
   from = aws_flow_log.vpc[0]
   to   = aws_flow_log.vpc["audit"]
 }
+
+moved {
+  from = aws_guardduty_detector.regional
+  to   = module.guardduty.aws_guardduty_detector.regional
+}

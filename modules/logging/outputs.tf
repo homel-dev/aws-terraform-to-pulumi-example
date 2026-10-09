@@ -6,7 +6,7 @@ output "loggings" {
       audit_bucket_arn      = bucket.arn
       cloudtrail_arn        = try(aws_cloudtrail.this[id].arn, null)
       flow_log_id           = try(aws_flow_log.vpc[id].id, null)
-      guardduty_detector_id = aws_guardduty_detector.regional.id
+      guardduty_detector_id = module.guardduty.detector_id
     }
   }
   depends_on = [aws_s3_bucket_policy.audit]
@@ -30,5 +30,5 @@ output "flow_log_id" {
 }
 
 output "guardduty_detector_id" {
-  value = aws_guardduty_detector.regional.id
+  value = module.guardduty.detector_id
 }
