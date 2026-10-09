@@ -4,7 +4,7 @@ locals {
     suffix = ".yml"
   }
 
-  stack_configs = {
+  configs = {
     for filename in fileset(join("/", [path.root, local.config_path.folder]), "**") :
     trimsuffix(filename, local.config_path.suffix) => merge(
       local.defaults,
@@ -12,14 +12,21 @@ locals {
     )
     if endswith(filename, local.config_path.suffix)
   }
+  state_bucket_prefixes = distinct([for _, config in local.configs : config.state_bucket_prefix])
+  state_bucket_prefix   = length(local.state_bucket_prefixes) == 1 ? local.state_bucket_prefixes[0] : local.defaults.state_bucket_prefix
 
-  config_values = values(local.stack_configs)
-  config        = length(local.config_values) == 1 ? local.config_values[0] : local.defaults
 }
 
-data "validation_error" "single_stack_config" {
-  count     = length(local.stack_configs) == 1 ? 0 : 1
+data "validation_error" "config_present" {
+  count     = length(local.configs) > 0 ? 0 : 1
   condition = false
-  summary   = "firewall stack requires exactly one YAML configuration file"
-  details   = "Expected exactly one *.yml file under ${path.root}/config; found ${length(local.stack_configs)}."
+  summary   = "No firewall YAML configuration found"
+  details   = "Add one YAML per logical resource under ${path.root}/config."
+}
+
+data "validation_error" "single_state_bucket_prefix" {
+  count     = length(local.state_bucket_prefixes) == 1 ? 0 : 1
+  condition = false
+  summary   = "firewall YAML files must share one state bucket prefix"
+  details   = "All configs in a location stack read the same remote-state bucket."
 }

@@ -1,6 +1,9 @@
 ---
 fields:
-  region: {type: string, required: true}
+  vpc_key: {type: string}
+  iam_key: {type: string}
+  logging_key: {type: string}
+  acm_key: {type: string}
   state_bucket_prefix: {type: string}
   approved_ingress_cidrs: {type: list, required: true}
   alb: {type: map, required: true}

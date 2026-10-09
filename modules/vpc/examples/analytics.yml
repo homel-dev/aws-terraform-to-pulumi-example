@@ -1,6 +1,5 @@
 ---
 # Example only. This file is NOT loaded unless copied to a deployment's config/.
-region: us-east-1
 name: myorg-poc-use1-analytics
 cidr: 10.43.0.0/16
 enable_dns_support: true

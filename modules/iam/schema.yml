@@ -1,6 +1,5 @@
 ---
 fields:
-  region: {type: string, required: true}
   state_bucket_prefix: {type: string}
   enable_ssm: {type: bool}
   tags: {type: map}

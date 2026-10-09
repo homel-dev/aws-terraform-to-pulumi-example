@@ -13,3 +13,6 @@ output "application_role_arn" {
 output "database_role_arn" {
   value = module.iam.database_role_arn
 }
+output "groups" {
+  value = module.iam.groups
+}

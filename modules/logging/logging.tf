@@ -13,12 +13,15 @@ data "aws_iam_policy_document" "flow_logs_assume_role" {
 }
 
 resource "aws_s3_bucket" "audit" {
-  bucket        = "${local.prefix}-${data.aws_caller_identity.current.account_id}-audit"
-  force_destroy = local.config.force_destroy
+  for_each      = local.configs
+  bucket        = "${local.prefix}-${data.aws_caller_identity.current.account_id}-${each.key}"
+  force_destroy = each.value.force_destroy
+  tags          = merge(local.common_tags, try(each.value.tags, {}))
 }
 
 resource "aws_s3_bucket_public_access_block" "audit" {
-  bucket = aws_s3_bucket.audit.id
+  for_each = local.configs
+  bucket   = aws_s3_bucket.audit[each.key].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -27,7 +30,8 @@ resource "aws_s3_bucket_public_access_block" "audit" {
 }
 
 resource "aws_s3_bucket_versioning" "audit" {
-  bucket = aws_s3_bucket.audit.id
+  for_each = local.configs
+  bucket   = aws_s3_bucket.audit[each.key].id
 
   versioning_configuration {
     status = "Enabled"
@@ -35,7 +39,8 @@ resource "aws_s3_bucket_versioning" "audit" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "audit" {
-  bucket = aws_s3_bucket.audit.id
+  for_each = local.configs
+  bucket   = aws_s3_bucket.audit[each.key].id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -45,7 +50,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "audit" {
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "audit" {
-  bucket = aws_s3_bucket.audit.id
+  for_each = local.configs
+  bucket   = aws_s3_bucket.audit[each.key].id
 
   rule {
     id     = "expire-audit-data"
@@ -54,11 +60,11 @@ resource "aws_s3_bucket_lifecycle_configuration" "audit" {
     filter {}
 
     expiration {
-      days = local.config.retention_days
+      days = each.value.retention_days
     }
 
     noncurrent_version_expiration {
-      noncurrent_days = local.config.retention_days
+      noncurrent_days = each.value.retention_days
     }
   }
 
@@ -66,11 +72,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "audit" {
 }
 
 locals {
-  trail_name = "${local.prefix}-audit"
-  trail_arn  = "arn:aws:cloudtrail:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:trail/${local.trail_name}"
+  trail_names = { for id, _ in local.configs : id => "${local.prefix}-${id}" }
+  trail_arns  = { for id, name in local.trail_names : id => "arn:aws:cloudtrail:${local.region}:${data.aws_caller_identity.current.account_id}:trail/${name}" }
 }
 
 data "aws_iam_policy_document" "audit_bucket" {
+  for_each = local.configs
   statement {
     sid     = "DenyInsecureTransport"
     effect  = "Deny"
@@ -82,8 +89,8 @@ data "aws_iam_policy_document" "audit_bucket" {
     }
 
     resources = [
-      aws_s3_bucket.audit.arn,
-      "${aws_s3_bucket.audit.arn}/*",
+      aws_s3_bucket.audit[each.key].arn,
+      "${aws_s3_bucket.audit[each.key].arn}/*",
     ]
 
     condition {
@@ -94,7 +101,7 @@ data "aws_iam_policy_document" "audit_bucket" {
   }
 
   dynamic "statement" {
-    for_each = local.config.cloudtrail_enabled ? [1] : []
+    for_each = each.value.cloudtrail_enabled ? [1] : []
     content {
       sid     = "CloudTrailAclCheck"
       effect  = "Allow"
@@ -105,18 +112,18 @@ data "aws_iam_policy_document" "audit_bucket" {
         identifiers = ["cloudtrail.amazonaws.com"]
       }
 
-      resources = [aws_s3_bucket.audit.arn]
+      resources = [aws_s3_bucket.audit[each.key].arn]
 
       condition {
         test     = "StringEquals"
         variable = "aws:SourceArn"
-        values   = [local.trail_arn]
+        values   = [local.trail_arns[each.key]]
       }
     }
   }
 
   dynamic "statement" {
-    for_each = local.config.cloudtrail_enabled ? [1] : []
+    for_each = each.value.cloudtrail_enabled ? [1] : []
     content {
       sid     = "CloudTrailWrite"
       effect  = "Allow"
@@ -127,7 +134,7 @@ data "aws_iam_policy_document" "audit_bucket" {
         identifiers = ["cloudtrail.amazonaws.com"]
       }
 
-      resources = ["${aws_s3_bucket.audit.arn}/cloudtrail/AWSLogs/${data.aws_caller_identity.current.account_id}/*"]
+      resources = ["${aws_s3_bucket.audit[each.key].arn}/cloudtrail/AWSLogs/${data.aws_caller_identity.current.account_id}/*"]
 
       condition {
         test     = "StringEquals"
@@ -138,13 +145,13 @@ data "aws_iam_policy_document" "audit_bucket" {
       condition {
         test     = "StringEquals"
         variable = "aws:SourceArn"
-        values   = [local.trail_arn]
+        values   = [local.trail_arns[each.key]]
       }
     }
   }
 
   dynamic "statement" {
-    for_each = local.config.alb_access_logs_enabled ? [1] : []
+    for_each = each.value.alb_access_logs_enabled ? [1] : []
     content {
       sid     = "AlbLogDelivery"
       effect  = "Allow"
@@ -155,20 +162,21 @@ data "aws_iam_policy_document" "audit_bucket" {
         identifiers = ["logdelivery.elasticloadbalancing.amazonaws.com"]
       }
 
-      resources = ["${aws_s3_bucket.audit.arn}/alb/AWSLogs/${data.aws_caller_identity.current.account_id}/*"]
+      resources = ["${aws_s3_bucket.audit[each.key].arn}/alb/AWSLogs/${data.aws_caller_identity.current.account_id}/*"]
     }
   }
 }
 
 resource "aws_s3_bucket_policy" "audit" {
-  bucket = aws_s3_bucket.audit.id
-  policy = data.aws_iam_policy_document.audit_bucket.json
+  for_each = local.configs
+  bucket   = aws_s3_bucket.audit[each.key].id
+  policy   = data.aws_iam_policy_document.audit_bucket[each.key].json
 }
 
 resource "aws_cloudtrail" "this" {
-  count                         = local.config.cloudtrail_enabled ? 1 : 0
-  name                          = local.trail_name
-  s3_bucket_name                = aws_s3_bucket.audit.id
+  for_each                      = local.cloudtrail_configs
+  name                          = local.trail_names[each.key]
+  s3_bucket_name                = aws_s3_bucket.audit[each.key].id
   s3_key_prefix                 = "cloudtrail"
   include_global_service_events = true
   is_multi_region_trail         = false
@@ -177,19 +185,19 @@ resource "aws_cloudtrail" "this" {
 }
 
 resource "aws_cloudwatch_log_group" "flow_logs" {
-  count             = local.config.vpc_flow_logs_enabled ? 1 : 0
-  name              = "/aws/vpc/flowlogs/${local.prefix}"
-  retention_in_days = local.config.flow_log_retention_days
+  for_each          = local.flow_log_configs
+  name              = "/aws/vpc/flowlogs/${local.prefix}${each.key == "audit" ? "" : "-${each.key}"}"
+  retention_in_days = each.value.flow_log_retention_days
 }
 
 resource "aws_iam_role" "flow_logs" {
-  count              = local.config.vpc_flow_logs_enabled ? 1 : 0
-  name               = "${local.prefix}-flow-logs"
+  for_each           = local.flow_log_configs
+  name               = "${local.prefix}-flow-logs${each.key == "audit" ? "" : "-${each.key}"}"
   assume_role_policy = data.aws_iam_policy_document.flow_logs_assume_role.json
 }
 
 data "aws_iam_policy_document" "flow_logs" {
-  count = local.config.vpc_flow_logs_enabled ? 1 : 0
+  for_each = local.flow_log_configs
 
   statement {
     effect = "Allow"
@@ -205,16 +213,16 @@ data "aws_iam_policy_document" "flow_logs" {
 }
 
 resource "aws_iam_role_policy" "flow_logs" {
-  count  = local.config.vpc_flow_logs_enabled ? 1 : 0
-  name   = "${local.prefix}-flow-logs"
-  role   = aws_iam_role.flow_logs[0].id
-  policy = data.aws_iam_policy_document.flow_logs[0].json
+  for_each = local.flow_log_configs
+  name     = "${local.prefix}-flow-logs${each.key == "audit" ? "" : "-${each.key}"}"
+  role     = aws_iam_role.flow_logs[each.key].id
+  policy   = data.aws_iam_policy_document.flow_logs[each.key].json
 }
 
 resource "aws_flow_log" "vpc" {
-  count           = local.config.vpc_flow_logs_enabled ? 1 : 0
-  iam_role_arn    = aws_iam_role.flow_logs[0].arn
-  log_destination = aws_cloudwatch_log_group.flow_logs[0].arn
+  for_each        = local.flow_log_configs
+  iam_role_arn    = aws_iam_role.flow_logs[each.key].arn
+  log_destination = aws_cloudwatch_log_group.flow_logs[each.key].arn
   traffic_type    = "ALL"
-  vpc_id          = data.terraform_remote_state.vpc.outputs.vpc_id
+  vpc_id          = data.terraform_remote_state.vpc.outputs.vpcs[each.value.vpc_key].vpc_id
 }

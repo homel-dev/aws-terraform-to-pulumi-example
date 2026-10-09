@@ -37,3 +37,6 @@ output "database_secret_arn" {
 output "endpoint_security_group_id" {
   value = module.ec2.endpoint_security_group_id
 }
+output "computes" {
+  value = module.ec2.computes
+}

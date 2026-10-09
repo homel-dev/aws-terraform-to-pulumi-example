@@ -1,6 +1,5 @@
 ---
 defaults:
-  region: us-east-1
   state_bucket_prefix: myorg-aws-terraform-state
   mode: managed_dns
   tags:

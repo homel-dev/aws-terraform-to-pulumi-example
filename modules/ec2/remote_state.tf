@@ -1,7 +1,7 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  state_bucket = "${local.config.state_bucket_prefix}-${data.aws_caller_identity.current.account_id}"
+  state_bucket = "${local.state_bucket_prefix}-${data.aws_caller_identity.current.account_id}"
 }
 
 data "terraform_remote_state" "vpc" {
@@ -9,7 +9,7 @@ data "terraform_remote_state" "vpc" {
   config = {
     bucket = local.state_bucket
     key    = "${local.path_prefix}/vpc/terraform.tfstate"
-    region = local.config.region
+    region = local.region
   }
 }
 
@@ -18,7 +18,7 @@ data "terraform_remote_state" "iam" {
   config = {
     bucket = local.state_bucket
     key    = "${local.path_prefix}/iam/terraform.tfstate"
-    region = local.config.region
+    region = local.region
   }
 }
 
@@ -27,7 +27,7 @@ data "terraform_remote_state" "logging" {
   config = {
     bucket = local.state_bucket
     key    = "${local.path_prefix}/logging/terraform.tfstate"
-    region = local.config.region
+    region = local.region
   }
 }
 
@@ -37,13 +37,21 @@ data "terraform_remote_state" "acm" {
   config = {
     bucket = local.state_bucket
     key    = "${local.path_prefix}/acm/terraform.tfstate"
-    region = local.config.region
+    region = local.region
   }
 }
 
 locals {
-  vpc_state     = data.terraform_remote_state.vpc.outputs
-  iam_state     = data.terraform_remote_state.iam.outputs
-  logging_state = data.terraform_remote_state.logging.outputs
-  acm_state     = data.terraform_remote_state.acm.outputs
+  vpc_states = {
+    for id, config in local.configs : id => data.terraform_remote_state.vpc.outputs.vpcs[config.vpc_key]
+  }
+  iam_groups = {
+    for id, config in local.configs : id => data.terraform_remote_state.iam.outputs.groups[config.iam_key]
+  }
+  logging_bundles = {
+    for id, config in local.configs : id => data.terraform_remote_state.logging.outputs.loggings[config.logging_key]
+  }
+  acm_certificates = {
+    for id, config in local.configs : id => data.terraform_remote_state.acm.outputs.certificate_arns[config.acm_key]
+  }
 }

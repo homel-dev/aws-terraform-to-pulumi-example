@@ -1,5 +1,4 @@
 ---
-region: us-east-1
 mode: imported
 certificate_arn: arn:aws:acm:us-east-1:000000000000:certificate/REPLACE_ME
 # To let Terraform own issuance and DNS validation instead:

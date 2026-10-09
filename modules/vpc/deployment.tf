@@ -6,6 +6,7 @@ locals {
   business_unit = local.deployment[0]
   environment   = local.deployment[1]
   location      = local.deployment[2]
+  region        = yamldecode(file("${dirname(abspath(path.root))}/location.yml")).region
   prefix        = join("-", local.deployment)
   path_prefix   = join("/", local.deployment)
 

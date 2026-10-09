@@ -1,4 +1,5 @@
 ---
 state_bucket_prefix: myorg-aws-terraform-state
+vpc_key: vpc
 log_retention_days: 30
 tags: {}

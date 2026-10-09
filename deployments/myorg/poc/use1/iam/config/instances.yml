@@ -1,5 +1,4 @@
 ---
-region: us-east-1
 enable_ssm: true
 tags:
   Project: myorg-aws-poc

@@ -1,5 +1,4 @@
 ---
-region: us-east-1
 name: egress
 application_subnet: app-a
 firewall_subnet: firewall-a

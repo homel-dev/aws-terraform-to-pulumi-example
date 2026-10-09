@@ -1,6 +1,5 @@
 ---
 fields:
-  region: {type: string, required: true}
   enabled: {type: bool}
   interval_hours: {type: number}
   times: {type: list}

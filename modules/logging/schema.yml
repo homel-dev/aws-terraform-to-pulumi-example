@@ -1,6 +1,6 @@
 ---
 fields:
-  region: {type: string, required: true}
+  vpc_key: {type: string}
   state_bucket_prefix: {type: string}
   retention_days: {type: number}
   flow_log_retention_days: {type: number}

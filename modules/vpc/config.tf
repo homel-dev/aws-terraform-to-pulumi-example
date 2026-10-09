@@ -14,9 +14,6 @@ locals {
     if endswith(filename, local.config_path.suffix)
   }
 
-  regions = distinct([for _, config in local.vpcs : config.region])
-  region  = try(local.regions[0], null)
-
   # Compound keys permit the same subnet name (e.g. public-a) in many VPCs.
   subnet_entries = flatten([
     for vpc_key, vpc in local.vpcs : [
@@ -40,11 +37,4 @@ data "validation_error" "vpc_config_present" {
   condition = false
   summary   = "No VPC configuration found"
   details   = "Add one YAML file per VPC under ${path.root}/config."
-}
-
-data "validation_error" "single_region" {
-  count     = length(local.regions) == 1 ? 0 : 1
-  condition = false
-  summary   = "VPC stack contains multiple AWS regions"
-  details   = "All VPC YAML files in one location must use the same AWS region."
 }

@@ -4,7 +4,7 @@ locals {
     suffix = ".yml"
   }
 
-  stack_configs = {
+  configs = {
     for filename in fileset(join("/", [path.root, local.config_path.folder]), "**") :
     trimsuffix(filename, local.config_path.suffix) => merge(
       local.defaults,
@@ -13,13 +13,13 @@ locals {
     if endswith(filename, local.config_path.suffix)
   }
 
-  config_values = values(local.stack_configs)
-  config        = length(local.config_values) == 1 ? local.config_values[0] : local.defaults
+  iam_suffixes = { for id, _ in local.configs : id => id == "instances" ? "" : "-${id}" }
+  ssm_configs = { for id, config in local.configs : id => config if config.enable_ssm }
 }
 
-data "validation_error" "single_stack_config" {
-  count     = length(local.stack_configs) == 1 ? 0 : 1
+data "validation_error" "config_present" {
+  count     = length(local.configs) > 0 ? 0 : 1
   condition = false
-  summary   = "iam stack requires exactly one YAML configuration file"
-  details   = "Expected exactly one *.yml file under ${path.root}/config; found ${length(local.stack_configs)}."
+  summary   = "No iam YAML configuration found"
+  details   = "Add one YAML per logical resource under ${path.root}/config."
 }

@@ -1,3 +1,7 @@
 ---
 state_bucket_prefix: myorg-aws-terraform-state
+vpc_key: vpc
+iam_key: instances
+logging_key: audit
+acm_key: certificate
 tags: {}

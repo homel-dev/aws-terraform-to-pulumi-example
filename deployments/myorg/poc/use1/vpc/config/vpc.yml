@@ -1,5 +1,4 @@
 ---
-region: us-east-1
 name: myorg-poc-use1
 cidr: 10.42.0.0/16
 subnets:

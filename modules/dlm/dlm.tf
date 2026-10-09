@@ -11,40 +11,42 @@ data "aws_iam_policy_document" "assume_role" {
 }
 
 resource "aws_iam_role" "this" {
-  count              = local.config.enabled ? 1 : 0
-  name               = "${local.prefix}-dlm"
+  for_each           = local.enabled_configs
+  name               = "${local.prefix}-dlm${each.key == "database" ? "" : "-${each.key}"}"
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
+  tags               = merge(local.common_tags, try(each.value.tags, {}))
 }
 
 resource "aws_iam_role_policy_attachment" "this" {
-  count      = local.config.enabled ? 1 : 0
-  role       = aws_iam_role.this[0].name
+  for_each   = local.enabled_configs
+  role       = aws_iam_role.this[each.key].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole"
 }
 
 resource "aws_dlm_lifecycle_policy" "database" {
-  count              = local.config.enabled ? 1 : 0
-  description        = "Scheduled EBS snapshots for ${local.prefix} database volumes"
-  execution_role_arn = aws_iam_role.this[0].arn
+  for_each           = local.enabled_configs
+  description        = "Scheduled EBS snapshots for ${local.prefix}${each.key == "database" ? "" : "-${each.key}"} database volumes"
+  execution_role_arn = aws_iam_role.this[each.key].arn
   state              = "ENABLED"
 
   policy_details {
     resource_types = ["VOLUME"]
-    target_tags    = local.config.target_tags
+    target_tags    = each.value.target_tags
 
     schedule {
-      name      = "daily-database-snapshots"
+      name      = each.key == "database" ? "daily-database-snapshots" : "daily-${each.key}-snapshots"
       copy_tags = true
 
       create_rule {
-        interval      = local.config.interval_hours
+        interval      = each.value.interval_hours
         interval_unit = "HOURS"
-        times         = local.config.times
+        times         = each.value.times
       }
 
       retain_rule {
-        count = local.config.retain_count
+        count = each.value.retain_count
       }
     }
   }
+  tags = merge(local.common_tags, try(each.value.tags, {}))
 }

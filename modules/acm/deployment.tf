@@ -4,6 +4,7 @@ locals {
   system      = local.deployment[0]
   environment = local.deployment[1]
   region_code = local.deployment[2]
+  region      = yamldecode(file("${dirname(abspath(path.root))}/location.yml")).region
   name        = basename(path.module)
   path_prefix = join("/", local.deployment)
 }

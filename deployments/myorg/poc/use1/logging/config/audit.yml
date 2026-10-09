@@ -1,5 +1,4 @@
 ---
-region: us-east-1
 retention_days: 90
 flow_log_retention_days: 30
 force_destroy: false

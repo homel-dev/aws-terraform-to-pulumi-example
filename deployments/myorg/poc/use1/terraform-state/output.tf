@@ -5,3 +5,6 @@ output "bucket_name" {
 output "bucket_arn" {
   value = module.terraform_state.bucket_arn
 }
+output "buckets" {
+  value = module.terraform_state.buckets
+}
