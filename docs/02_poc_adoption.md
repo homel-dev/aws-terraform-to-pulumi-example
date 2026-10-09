@@ -7,6 +7,8 @@ into `deployments/myorg/poc/use1/vpc`. Compute imports into
 and ASG, three Security Groups, ALB, target group and both HTTP/HTTPS listeners.
 The same EC2 plan may also contain the desired POC configuration changes.
 There is **no separate `deployments/myorg/brownfield/use1/compute` root**.
+
+**Before any EC2 replacement:** the checked-in public Ubuntu AMI parameters are a seed-adoption fallback, not complete POC images. A fresh private database EC2 requires MySQL, `jq` and AWS CLI; the app image requires the `myorg-poc-app` systemd service. Build the Packer images and switch both `ami_ssm_parameter` settings to their published SSM parameters before launching replacements. The isolated database subnet has no package-download Internet route.
 The ACM certificate is referenced separately through the `acm` stack.
 
 A Terraform configuration and its import declarations do **not** establish that
@@ -24,7 +26,7 @@ public IPv4, ALB and later NAT/Network Firewall. Use **no real customer data**.
 Run the next commands **from the repository root**:
 
 ```bash
-export AWS_PROFILE=myorg-sandbox
+export AWS_PROFILE=default  # or your configured AWS CLI profile
 export AWS_REGION=us-east-1
 export SEED_REGION=us-east-1
 export SEED_STATE_FILE="$PWD/.terraform/seed/brownfield-use1.json"

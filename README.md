@@ -6,6 +6,20 @@ Terraform proof of concept for the MyOrg PCI-DSS network-control scenario.
 
 The repository follows the organization-wide policy in `homel-dev/.github`. The canonical project contract is [`docs/01_architecture.md`](docs/01_architecture.md).
 
+## Branches and evolution
+
+This README describes the three-stage solution, and is intended to be identical in all three branches. The actual deployment code differs by branch:
+
+| Branch | Implementation | Purpose |
+| --- | --- | --- |
+| `main` | Terraform, EC2 MySQL, application ASG, ALB, Network Firewall, independent Terraform states | Adopt the seeded AWS baseline and demonstrate the minimum PCI-DSS 1.3.1/1.3.2 network controls |
+| `audit-hardening` | Terraform with MySQL on Multi-AZ RDS and additional encryption, backup, WAF, audit and security services | Harden the baseline and explicitly migrate the database |
+| `modernized-pulumi` | Pulumi TypeScript and application containers on ECS/Fargate, using RDS | Illustrate a modernized application platform and IaC implementation |
+
+These are architectural stages, **not** evidence that every resource exists in the target AWS account. Each branch must be planned, applied and verified independently. The deployment directories and commands below document the Terraform **`main` baseline**.
+
+**Before a real deployment:** `ec2/config/compute.yml` still includes the documentation-only ingress CIDR `203.0.113.10/32` and an account-specific imported ACM certificate ARN. Replace the CIDR with the approved client source, ensure the ACM certificate exists in the target account/region, and complete the Packer AMI prerequisite below. The checked-in POC is not a claim of PCI-DSS certification.
+
 ## Repository model
 
 Reusable implementation lives in `modules/`. Deployment roots are identified by:
@@ -89,11 +103,13 @@ The application artifact from `example.com` remains a boot-time dependency in `m
 
 ## Deployed AWS architecture
 
-The diagram below is regenerated from all nine deployed Terraform states after
-a successful GitHub Actions `apply` or `full` run on `main`. It represents
-Terraform-managed resources in AWS, not an unapplied Terraform plan.
+The diagram below is the checked-in snapshot rendered from Terraform state data.
+The `main` GitHub Actions workflow updates it after a successful deployment.
+It does not establish that the **current** account still matches the snapshot.
 
-![MyOrg POC AWS architecture](docs/architecture/myorg-poc-use1.svg)
+![MyOrg POC AWS architecture](docs/architecture/myorg-poc-use1.dot.svg)
+
+[Open the full-resolution AWS architecture diagram](docs/architecture/myorg-poc-use1.dot.svg)
 
 ## First deployment order
 
@@ -102,7 +118,7 @@ The Packer builders use the POC VPC public subnet, so first deployment is intent
 ```text
 1. terraform-state
 2. vpc
-3. build application + database AMIs and publish their IDs to SSM
+3. build application + database AMIs with Packer and publish their IDs to SSM **before launching new private EC2 instances**
 4. iam
 5. logging
 6. route53
@@ -112,7 +128,7 @@ The Packer builders use the POC VPC public subnet, so first deployment is intent
 10. dlm
 ```
 
-The stack order is visible in [the location workflow](.github/workflows/myorg-poc-use1.yml). The image workflow is separate. Initial adoption can use the public Ubuntu AMI SSM parameter; custom Packer AMIs require their SSM parameters to have been published before selection.
+The stack order is visible in [the location workflow](.github/workflows/myorg-poc-use1.yml). The image workflow is separate; it must finish before a new private application/database instance is launched. **The checked-in EC2 configuration currently points to public Ubuntu 24.04 AMIs as an adoption fallback, not production-ready runtime images.** Those AMIs lack the POC application service, MySQL server, and bootstrap utilities provided by the Packer images. The isolated database subnet has no Internet route to install them at boot. Before a fresh deployment or any import/upgrade that replaces EC2 instances, build both Packer AMIs and set `application.ami_ssm_parameter` / `database.ami_ssm_parameter` to the resulting SSM parameters. A successful Terraform plan alone does not verify boot readiness.
 
 The order exists because downstream stacks consume outputs from already-created remote states. It is not lifecycle coupling between their states.
 

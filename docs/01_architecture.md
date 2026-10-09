@@ -64,9 +64,7 @@ The current default-VPC environment is **observed state**.
 
 The POC topology in section 6 is **desired state**.
 
-Terraform adoption of existing resources and architectural migration MUST remain separate operations.
-
-Importing existing infrastructure MUST NOT implicitly authorize replacement or redesign.
+In the original production environment, Terraform adoption and architectural migration SHOULD remain separate reviewed operations. In the **isolated POC seed environment**, import and the approved target-network remediation MAY occur in the same explicitly reviewed Terraform plan; all create/update/replace/destroy actions and any database-data impact MUST be assessed before applying. Import alone does not authorize replacement.
 
 The POC is the primary deliverable and MUST NOT depend on the manual environment existing. Import of the existing environment is a documented procedure, not a reviewer-verifiable result.
 
@@ -79,7 +77,7 @@ Stage 0 is the answer to "what if the final solution takes longer than five days
 - Visibility comes first. Flow logs and audit logging MUST be enabled before any rule is tightened, because the real traffic is unknown.
 - Tightening MUST follow observed traffic, not assumptions. Otherwise production may be broken during the audit window.
 - Containment changes MAY be applied first through the AWS CLI or console as a documented emergency change, with before/after exports kept as evidence. Terraform then reconciles to the applied state. The risk reduction MUST NOT wait for a complete import.
-- Import and redesign MUST NOT be combined into one change.
+- For Stage 0 in the original environment, do not combine emergency containment with an unrelated infrastructure redesign. The separate, isolated POC adoption procedure explicitly permits combined import and target changes after reviewing the plan.
 
 ### 4.2 Schedule
 
@@ -97,7 +95,7 @@ The following MUST be applied:
 
 - restrict ALB ingress to the approved finite CIDR list, expressed as a managed prefix list;
 - terminate HTTPS at the ALB with a current TLS policy;
-- close port `80` (no plaintext listener);
+- block public client access to port `80` at the ALB security group. The POC retains an imported HTTP/80 listener as a managed object, but no TCP/80 ingress is allowed;
 - restrict ALB egress to the app security group;
 - allow application ingress only from the ALB security group;
 - allow MySQL `3306` only from the application security group;
@@ -154,7 +152,7 @@ The justification text below is a draft. The business owner MUST confirm it.
 | IN-01 | Approved CIDR prefix list → ALB SG | TCP 443 | Customer access from a finite list of sources | S0, POC |
 | IN-02 | ALB SG → App SG | TCP 8080* | ALB forwards requests to the application only | S0, POC |
 | IN-03 | App SG → DB SG | TCP 3306 | Application reads and writes the database | S0, POC |
-| IN-04 | Any → ALB | TCP 80 | **Denied.** No plaintext listener | S0, POC |
+| IN-04 | Any → ALB | TCP 80 | **Denied at the ALB SG.** The seeded HTTP listener remains managed but is unreachable from clients | S0, POC |
 | IN-05 | Any → App SG / DB SG | TCP 22 | **Denied.** Administration only via SSM | S0, POC |
 | IN-06 | Internet → DB SG | any | **Denied.** The DB is never reachable from the Internet | S0, POC |
 | IN-07 | App SG → Proxy SG | TCP 3128 | Forward proxy for controlled Stage 0 egress | S0 only |
@@ -194,7 +192,7 @@ DNS traffic to the Amazon-provided resolver is not represented as a security-gro
 The POC deploys exactly this baseline:
 
 - a dedicated VPC;
-- one ALB, public, HTTPS only, in two Availability Zones;
+- one ALB, public HTTPS/443 allowed only from approved CIDRs, in two Availability Zones; the imported HTTP/80 listener is retained but blocked at the ALB security group;
 - one application EC2 instance through an ASG (`min = max = desired = 1`);
 - one MySQL EC2 instance;
 - AWS Network Firewall for controlled application egress, with NAT;
@@ -301,7 +299,7 @@ myorg-aws/
 ├── README.md
 ├── docs/
 │   ├── 01_architecture.md
-│   ├── 02_brownfield_adoption.md
+│   ├── 02_poc_adoption.md
 │   └── 03_boot_artifact_boundary.md
 ├── modules/
 │   ├── terraform-state/
