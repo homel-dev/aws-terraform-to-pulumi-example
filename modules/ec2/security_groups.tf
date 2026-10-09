@@ -86,26 +86,6 @@ resource "aws_vpc_security_group_egress_rule" "application_to_database" {
   description                  = "OUT-02 application to database"
 }
 
-resource "aws_vpc_security_group_egress_rule" "application_to_rds" {
-  for_each                     = local.configs
-  security_group_id            = aws_security_group.application[each.key].id
-  referenced_security_group_id = module.rds[each.key].security_group_id
-  ip_protocol                  = "tcp"
-  from_port                    = each.value.database.port
-  to_port                      = each.value.database.port
-  description                  = "Application to RDS MySQL"
-}
-
-resource "aws_vpc_security_group_egress_rule" "database_to_rds" {
-  for_each                     = local.configs
-  security_group_id            = aws_security_group.database[each.key].id
-  referenced_security_group_id = module.rds[each.key].security_group_id
-  ip_protocol                  = "tcp"
-  from_port                    = each.value.database.port
-  to_port                      = each.value.database.port
-  description                  = "EC2 MySQL source to RDS during migration"
-}
-
 resource "aws_vpc_security_group_egress_rule" "application_https" {
   for_each          = local.configs
   security_group_id = aws_security_group.application[each.key].id

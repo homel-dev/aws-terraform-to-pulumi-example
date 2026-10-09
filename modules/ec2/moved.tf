@@ -118,41 +118,6 @@ moved {
   to   = aws_vpc_endpoint.interface["compute/ssmmessages"]
 }
 
-# Preserve AWS resources when moving audit-hardening code into reusable modules.
-moved {
-  from = aws_db_subnet_group.database["compute"]
-  to   = module.rds["compute"].aws_db_subnet_group.database
-}
-
-moved {
-  from = aws_db_instance.database["compute"]
-  to   = module.rds["compute"].aws_db_instance.database
-}
-
-moved {
-  from = aws_security_group.rds["compute"]
-  to   = module.rds["compute"].aws_security_group.rds
-}
-
-moved {
-  from = aws_vpc_security_group_ingress_rule.rds_from_application["compute"]
-  to   = module.rds["compute"].aws_vpc_security_group_ingress_rule.rds_from_application
-}
-
-moved {
-  from = aws_vpc_security_group_ingress_rule.rds_from_database["compute"]
-  to   = module.rds["compute"].aws_vpc_security_group_ingress_rule.rds_from_database
-}
-
-moved {
-  from = aws_wafv2_web_acl.application["compute"]
-  to   = module.waf["compute"].aws_wafv2_web_acl.application
-}
-
-moved {
-  from = aws_wafv2_web_acl_association.application["compute"]
-  to   = module.waf["compute"].aws_wafv2_web_acl_association.application
-}
 
 moved {
   from = aws_vpc_endpoint.interface["ec2messages"]

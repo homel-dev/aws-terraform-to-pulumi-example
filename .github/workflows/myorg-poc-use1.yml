@@ -18,7 +18,7 @@ on:
         description: Selected Terraform stack (ignored in full mode)
         required: true
         type: choice
-        options: [terraform-state, vpc, iam, logging, route53, acm, firewall, ec2, dlm]
+        options: [terraform-state, vpc, iam, logging, route53, acm, firewall, ec2, dlm, rds, waf, guardduty]
 
 permissions:
   contents: read
@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        stack: [terraform-state, vpc, iam, logging, route53, acm, firewall, ec2, dlm]
+        stack: [terraform-state, vpc, iam, logging, route53, acm, firewall, ec2, dlm, rds, waf, guardduty]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -63,6 +63,9 @@ jobs:
       firewall: ${{ steps.filter.outputs.firewall }}
       ec2: ${{ steps.filter.outputs.ec2 }}
       dlm: ${{ steps.filter.outputs.dlm }}
+      rds: ${{ steps.filter.outputs.rds }}
+      waf: ${{ steps.filter.outputs.waf }}
+      guardduty: ${{ steps.filter.outputs.guardduty }}
     steps:
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         id: filter
@@ -98,6 +101,15 @@ jobs:
             dlm:
               - 'deployments/myorg/poc/use1/dlm/**'
               - 'modules/dlm/**'
+            rds:
+              - 'deployments/myorg/poc/use1/rds/**'
+              - 'modules/rds/**'
+            waf:
+              - 'deployments/myorg/poc/use1/waf/**'
+              - 'modules/waf/**'
+            guardduty:
+              - 'deployments/myorg/poc/use1/guardduty/**'
+              - 'modules/guardduty/**'
 
   # PR plans read already-deployed remote states; the filters include all
   # downstream consumers of a changed output-producing stack.
@@ -155,6 +167,24 @@ jobs:
     uses: ./.github/workflows/_terraform-stack.yml
     with: {stack: dlm, operation: plan}
     permissions: {contents: read, id-token: write}
+  pr-rds:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true' || needs.changes.outputs.vpc == 'true' || needs.changes.outputs.ec2 == 'true' || needs.changes.outputs.rds == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: rds, operation: plan}
+    permissions: {contents: read, id-token: write}
+  pr-waf:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true' || needs.changes.outputs.ec2 == 'true' || needs.changes.outputs.waf == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: waf, operation: plan}
+    permissions: {contents: read, id-token: write}
+  pr-guardduty:
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.common == 'true' || needs.changes.outputs.state == 'true' || needs.changes.outputs.guardduty == 'true')
+    needs: [validate, changes]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: guardduty, operation: plan}
+    permissions: {contents: read, id-token: write}
 
   selected-stack:
     if: github.event_name == 'workflow_dispatch' && inputs.mode != 'full'
@@ -192,6 +222,11 @@ jobs:
     uses: ./.github/workflows/_terraform-stack.yml
     with: {stack: logging, operation: apply}
     permissions: {contents: read, id-token: write}
+  guardduty:
+    needs: state
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: guardduty, operation: apply}
+    permissions: {contents: read, id-token: write}
   acm:
     needs: [state, route53]
     uses: ./.github/workflows/_terraform-stack.yml
@@ -212,6 +247,16 @@ jobs:
     uses: ./.github/workflows/_terraform-stack.yml
     with: {stack: dlm, operation: apply}
     permissions: {contents: read, id-token: write}
+  rds:
+    needs: [state, vpc, ec2]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: rds, operation: apply}
+    permissions: {contents: read, id-token: write}
+  waf:
+    needs: [state, ec2]
+    uses: ./.github/workflows/_terraform-stack.yml
+    with: {stack: waf, operation: apply}
+    permissions: {contents: read, id-token: write}
 
   architecture:
     if: >-
@@ -220,11 +265,11 @@ jobs:
         github.event_name == 'workflow_dispatch' &&
         github.ref == 'refs/heads/main' &&
         (
-          (inputs.mode == 'full' && needs.dlm.result == 'success') ||
+          (inputs.mode == 'full' && needs.dlm.result == 'success' && needs.rds.result == 'success' && needs.waf.result == 'success' && needs.guardduty.result == 'success') ||
           (inputs.mode == 'apply' && needs.selected-stack.result == 'success')
         )
       }}
-    needs: [selected-stack, dlm]
+    needs: [selected-stack, dlm, rds, waf, guardduty]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -241,7 +286,7 @@ jobs:
         run: |
           state_dir="$RUNNER_TEMP/myorg-terraform-states"
           mkdir -p "$state_dir"
-          for stack in terraform-state vpc iam logging route53 acm firewall ec2 dlm; do
+          for stack in terraform-state vpc iam logging route53 acm firewall ec2 dlm rds waf guardduty; do
             aws s3 cp \
               "s3://$TF_STATE_BUCKET/myorg/poc/use1/$stack/terraform.tfstate" \
               "$state_dir/$stack.tfstate" \

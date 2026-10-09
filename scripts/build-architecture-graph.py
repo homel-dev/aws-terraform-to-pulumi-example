@@ -26,6 +26,9 @@ STACKS = (
     "firewall",
     "ec2",
     "dlm",
+    "rds",
+    "waf",
+    "guardduty",
 )
 
 # A logical infrastructure view, not a graph of Terraform bookkeeping objects.
@@ -48,6 +51,9 @@ VISIBLE_TYPES = {
     "aws_flow_log",
     "aws_dlm_lifecycle_policy",
     "aws_secretsmanager_secret",
+    "aws_db_instance",
+    "aws_wafv2_web_acl",
+    "aws_guardduty_detector",
 }
 
 
@@ -117,6 +123,8 @@ def subnet_ids(resource: Resource) -> list[str]:
         return strings(attrs.get("subnet_ids"))
     if resource.kind == "aws_networkfirewall_firewall":
         return [item["subnet_id"] for item in objects(attrs.get("subnet_mapping")) if item.get("subnet_id")]
+    if resource.kind == "aws_db_instance":
+        return strings(attrs.get("subnet_ids"))
     return strings(attrs.get("subnet_id"))
 
 
@@ -131,6 +139,8 @@ def resource_security_groups(resource: Resource) -> list[str]:
     if resource.kind == "aws_lb":
         return strings(attrs.get("security_groups"))
     if resource.kind == "aws_instance":
+        return strings(attrs.get("vpc_security_group_ids"))
+    if resource.kind == "aws_db_instance":
         return strings(attrs.get("vpc_security_group_ids"))
     if resource.kind == "aws_vpc_endpoint":
         return strings(attrs.get("security_group_ids"))
@@ -148,6 +158,18 @@ def build_graph(resources: list[Resource]) -> dict[str, list[str]]:
             value = resource.attrs.get(index_key)
             if isinstance(value, str) and value:
                 directory[value] = resource
+
+    # A DB instance locates its Multi-AZ subnets through its subnet group.
+    db_subnet_groups = {
+        group.attrs.get("name"): group
+        for group in resources
+        if group.kind == "aws_db_subnet_group"
+    }
+    for resource in resources:
+        if resource.kind == "aws_db_instance":
+            group = db_subnet_groups.get(resource.attrs.get("db_subnet_group_name"))
+            if group:
+                resource.attrs = {**resource.attrs, "subnet_ids": group.attrs.get("subnet_ids", [])}
 
     def make_node(kind: str, name: str) -> str:
         base = f"{kind}.{slug(name)}"
@@ -176,6 +198,11 @@ def build_graph(resources: list[Resource]) -> dict[str, list[str]]:
 
     for vpc in vpcs.values():
         graph["tv_aws_region.us_east_1"].add(vpc.nodes[0])
+
+    # GuardDuty is regional, not a workload in one VPC or subnet.
+    for detector in resources:
+        if detector.kind == "aws_guardduty_detector" and detector.nodes:
+            graph["tv_aws_region.us_east_1"].add(detector.nodes[0])
 
     zones: dict[tuple[str, str], str] = {}
     for subnet in subnets.values():
@@ -233,6 +260,16 @@ def build_graph(resources: list[Resource]) -> dict[str, list[str]]:
             for end in sg_consumers.get(destination, ()):
                 if start != end:
                     graph[start].add(end)
+
+    # An explicit WAFv2 association identifies the ALB protected by the ACL.
+    for association in resources:
+        if association.kind != "aws_wafv2_web_acl_association":
+            continue
+        acl = by_arn.get(association.attrs.get("web_acl_arn"))
+        protected = by_arn.get(association.attrs.get("resource_arn"))
+        if acl and protected and acl.nodes and protected.nodes:
+            for acl_node in acl.nodes:
+                graph[acl_node].update(protected.nodes)
 
     # ALB listeners and ASG target-group membership provide direct routing links.
     groups_by_target: dict[str, list[Resource]] = defaultdict(list)

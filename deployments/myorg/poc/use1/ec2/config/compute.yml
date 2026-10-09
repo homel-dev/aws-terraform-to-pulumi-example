@@ -36,13 +36,6 @@ database:
   ami_ssm_parameter: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
   name: myorg
   username: myorg_app
-  rds:
-    standby_subnet: database-b
-    engine_version: "8.4"
-    instance_class: db.t4g.small
-    allocated_storage_gib: 20
-    master_username: myorg_admin
-    backup_retention_days: 7
 tags:
   Project: myorg-aws-poc
   Purpose: pci-dss-network-control

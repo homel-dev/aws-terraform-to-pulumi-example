@@ -1,0 +1,16 @@
+---
+state_bucket_prefix: myorg-aws-terraform-state
+vpc_key: vpc
+compute_key: compute
+database_name: myorg
+port: 3306
+subnet: database-a
+standby_subnet: database-b
+engine_version: "8.4"
+instance_class: db.t4g.small
+allocated_storage_gib: 20
+master_username: myorg_admin
+backup_retention_days: 7
+tags:
+  Project: myorg-aws-poc
+  Purpose: pci-dss-network-control

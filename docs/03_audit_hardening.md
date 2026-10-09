@@ -1,22 +1,27 @@
 # Audit-hardening: RDS migration, GuardDuty and WAF
 
-This branch extends the existing `myorg/poc/use1` Terraform location. It does
-not introduce another Terraform state root. The EC2 MySQL instance and its DLM
-snapshot policy remain managed until a separately approved retirement.
+This branch adds three independent Terraform roots and S3 state keys under
+`myorg/poc/use1`: `rds`, `waf`, and `guardduty`. They invoke the reusable
+modules in `modules/rds`, `modules/waf`, and `modules/guardduty`. The original
+`ec2` and `logging` roots do not own these resources.
 
-RDS, WAF and GuardDuty are independent reusable child modules at `modules/rds`,
-`modules/waf` and `modules/guardduty`. Existing `ec2` and `logging` roots call
-them without introducing any new backend or Terraform state file.
+The EC2 MySQL instance and its DLM snapshot policy remain managed until a
+separately approved retirement. The new RDS and WAF stacks read outputs from
+the already-applied EC2 state. There is no EC2-to-RDS remote-state dependency.
 
 ## Terraform resources and ordering
 
 1. Apply `deployments/myorg/poc/use1/vpc` to add the private `database-b`
    subnet (`us-east-1b`, `10.42.21.0/24`). Existing `database-a` remains in
    `us-east-1a`. RDS requires a DB subnet group spanning at least two AZs.
-2. Apply `deployments/myorg/poc/use1/logging` for regional GuardDuty.
-3. Apply `deployments/myorg/poc/use1/ec2` for a private MySQL 8.4 RDS instance
-   with Multi-AZ standby, AWS-managed KMS encryption, seven-day automated
-   backups and deletion protection; plus an ALB-associated regional WAF ACL.
+2. Apply `deployments/myorg/poc/use1/guardduty` for the regional detector.
+3. Apply `deployments/myorg/poc/use1/ec2` for the existing ALB, application,
+   database EC2 and their security groups.
+4. Apply `deployments/myorg/poc/use1/rds` for private MySQL 8.4 RDS with
+   Multi-AZ standby, AWS-managed KMS encryption, seven-day automated backups
+   and deletion protection, plus app/database-to-RDS security-group rules.
+5. Apply `deployments/myorg/poc/use1/waf` to associate a regional WAF ACL with
+   the ALB managed by the EC2 stack.
 
 Use the existing plan/review/apply workflow for these roots. The EC2 root still
 manages the old MySQL EC2 instance, which is required as the migration source.
@@ -32,21 +37,46 @@ account before the first Terraform apply:
 aws guardduty list-detectors --region us-east-1 --output json
 ```
 
-If a detector already exists, import its ID into the existing logging root
+If a detector already exists, import its ID into the GuardDuty root
 before running the apply:
 
 ```bash
-terraform -chdir=deployments/myorg/poc/use1/logging import \
-  module.logging.module.guardduty.aws_guardduty_detector.regional DETECTOR_ID
+terraform -chdir=deployments/myorg/poc/use1/guardduty import \
+  module.guardduty.aws_guardduty_detector.regional DETECTOR_ID
 ```
 
-If no detector exists, the logging Terraform root creates it. Never enable a
+If no detector exists, the GuardDuty Terraform root creates it. Never enable a
 second detector via another Terraform state root in the same account/Region.
 
-If an earlier version of the audit-hardening patch was already applied, the
-`moved` blocks in the `ec2` and `logging` modules preserve existing Terraform
-resource addresses on the first plan after this refactor. Review that plan and
-confirm the RDS, WAF and GuardDuty resources are not scheduled for replacement.
+### Existing audit-hardening state migration
+
+**Do not apply the new roots while any RDS/WAF/GuardDuty resources remain
+managed by the old EC2 or logging states.** Terraform `moved` blocks cannot
+move resources between two independently configured remote backends. Inspect
+both state files and migrate the exact resource addresses with a controlled,
+backed-up cross-state operation before running a plan or apply. This patch does
+not automatically modify remote states.
+
+For an earlier modular audit-hardening apply, the old-to-new address mapping is:
+
+| Old address (within its root state) | New address (within its root state) |
+| --- | --- |
+| `module.ec2.module.rds["compute"].aws_db_instance.database` | `module.rds.aws_db_instance.database` |
+| `module.ec2.module.rds["compute"].aws_db_subnet_group.database` | `module.rds.aws_db_subnet_group.database` |
+| `module.ec2.module.rds["compute"].aws_security_group.rds` | `module.rds.aws_security_group.rds` |
+| `module.ec2.module.rds["compute"].aws_vpc_security_group_ingress_rule.rds_from_application` | `module.rds.aws_vpc_security_group_ingress_rule.rds_from_application` |
+| `module.ec2.module.rds["compute"].aws_vpc_security_group_ingress_rule.rds_from_database` | `module.rds.aws_vpc_security_group_ingress_rule.rds_from_database` |
+| `module.ec2.aws_vpc_security_group_egress_rule.application_to_rds["compute"]` | `module.rds.aws_vpc_security_group_egress_rule.application_to_rds` |
+| `module.ec2.aws_vpc_security_group_egress_rule.database_to_rds["compute"]` | `module.rds.aws_vpc_security_group_egress_rule.database_to_rds` |
+| `module.ec2.module.waf["compute"].aws_wafv2_web_acl.application` | `module.waf.aws_wafv2_web_acl.application` |
+| `module.ec2.module.waf["compute"].aws_wafv2_web_acl_association.application` | `module.waf.aws_wafv2_web_acl_association.application` |
+| `module.logging.module.guardduty.aws_guardduty_detector.regional` | `module.guardduty.aws_guardduty_detector.regional` |
+
+If the prior audit-hardening revision did not use child modules, its source
+addresses differ. Read `terraform state list` instead of assuming the mapping
+above. Confirm plans for all five affected roots do not propose resource
+destruction or recreation before applying. Existing AWS tags retain the old
+`Stack` and `Module` tag values to avoid a separate retagging change.
 
 ## Planned MySQL cutover (requires downtime)
 
@@ -56,8 +86,8 @@ application artifact is still a placeholder, so its handling of the existing
 confirmed before traffic is resumed.
 
 1. Confirm RDS is available. Record the EC2 Terraform outputs
-   `database_instance_id`, `database_rds_endpoint`,
-   `database_rds_master_secret_arn` and `database_secret_arn`.
+   `database_instance_id`, `database_secret_arn`, and the **RDS** stack outputs
+   `database_rds_endpoint` and `database_rds_master_secret_arn`.
 2. Stop application writes, stop application workers and preserve a recoverable
    source snapshot/backup. Do not resume writes during the dump and restore.
 3. Open an SSM session on the **existing database EC2 instance**. This is the
@@ -103,5 +133,6 @@ on Terraform destroy. Multi-AZ RDS, GuardDuty and WAF introduce recurring AWS
 charges. WAF uses the AWS-managed IP Reputation and Common Rule groups with
 their blocking actions, so false positives can reject legitimate requests.
 
-The branch does not enable AWS Config or Security Hub and does not change
-GitHub Actions permissions or deployment workflow behavior.
+The branch does not enable AWS Config or Security Hub. GitHub Actions adds the
+three new roots to plan/apply selections, PR plans, full-location ordering and
+deployed-state architecture generation without changing permissions.

@@ -11,10 +11,6 @@ output "computes" {
       database_instance_id           = aws_instance.database[id].id
       database_security_group_id     = aws_security_group.database[id].id
       database_secret_arn            = aws_secretsmanager_secret.database[id].arn
-      database_rds_identifier        = module.rds[id].identifier
-      database_rds_endpoint          = module.rds[id].endpoint
-      database_rds_master_secret_arn = module.rds[id].master_secret_arn
-      waf_web_acl_arn                = module.waf[id].web_acl_arn
       endpoint_security_group_id     = aws_security_group.endpoints[id].id
     }
   }
@@ -54,22 +50,6 @@ output "database_security_group_id" {
 
 output "database_secret_arn" {
   value = aws_secretsmanager_secret.database["compute"].arn
-}
-
-output "database_rds_identifier" {
-  value = module.rds["compute"].identifier
-}
-
-output "database_rds_endpoint" {
-  value = module.rds["compute"].endpoint
-}
-
-output "database_rds_master_secret_arn" {
-  value = module.rds["compute"].master_secret_arn
-}
-
-output "waf_web_acl_arn" {
-  value = module.waf["compute"].web_acl_arn
 }
 
 output "endpoint_security_group_id" {

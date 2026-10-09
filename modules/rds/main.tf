@@ -23,6 +23,24 @@ resource "aws_vpc_security_group_ingress_rule" "rds_from_database" {
   description                  = "MySQL data migration from existing EC2"
 }
 
+resource "aws_vpc_security_group_egress_rule" "application_to_rds" {
+  security_group_id            = var.application_security_group_id
+  referenced_security_group_id = aws_security_group.rds.id
+  ip_protocol                  = "tcp"
+  from_port                    = var.port
+  to_port                      = var.port
+  description                  = "Application to RDS MySQL"
+}
+
+resource "aws_vpc_security_group_egress_rule" "database_to_rds" {
+  security_group_id            = var.migration_security_group_id
+  referenced_security_group_id = aws_security_group.rds.id
+  ip_protocol                  = "tcp"
+  from_port                    = var.port
+  to_port                      = var.port
+  description                  = "EC2 MySQL source to RDS during migration"
+}
+
 resource "aws_db_subnet_group" "database" {
   name       = "${var.name_prefix}-rds"
   subnet_ids = var.subnet_ids

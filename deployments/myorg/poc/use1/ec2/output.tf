@@ -34,22 +34,6 @@ output "database_secret_arn" {
   value = module.ec2.database_secret_arn
 }
 
-output "database_rds_identifier" {
-  value = module.ec2.database_rds_identifier
-}
-
-output "database_rds_endpoint" {
-  value = module.ec2.database_rds_endpoint
-}
-
-output "database_rds_master_secret_arn" {
-  value = module.ec2.database_rds_master_secret_arn
-}
-
-output "waf_web_acl_arn" {
-  value = module.ec2.waf_web_acl_arn
-}
-
 output "endpoint_security_group_id" {
   value = module.ec2.endpoint_security_group_id
 }

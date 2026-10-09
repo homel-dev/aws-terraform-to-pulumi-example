@@ -1,0 +1,6 @@
+---
+state_bucket_prefix: myorg-aws-terraform-state
+compute_key: compute
+tags:
+  Project: myorg-aws-poc
+  Purpose: pci-dss-network-control
