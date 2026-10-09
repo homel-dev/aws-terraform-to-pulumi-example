@@ -46,6 +46,7 @@ The CDE boundary MUST be stated before any rule is evaluated.
 |---|---|---|
 | Application EC2 instance | **In CDE** | Processes cardholder data |
 | MySQL EC2 instance | **In CDE** | Stores cardholder data |
+| MySQL RDS instance (`audit-hardening`) | **In CDE** | Becomes the database target after a separately reviewed data cutover |
 | ALB | Connected-to | Terminates TLS and forwards to the CDE |
 | Network Firewall / proxy, NAT, VPC endpoints | Security-impacting | Control CDE egress and administration |
 
@@ -199,7 +200,10 @@ The POC deploys exactly this baseline:
 - SSM/Secrets Manager interface endpoints;
 - security groups and a managed prefix list per section 5;
 - VPC Flow Logs, CloudTrail, ALB access logs, firewall logs, and DLM snapshots for the DB volume;
-- optional Route 53 and ACM DNS-validation stacks when a real delegated domain is available.
+- optional ACM DNS validation when a real delegated domain is available. The
+  checked-in Route 53 configuration currently creates a public
+  `poc.example.com` placeholder zone, and the `full` workflow applies that
+  stack even when ACM uses an imported certificate.
 
 A managed database and a multi-instance application tier are **not** part of `main` (section 13).
 
@@ -244,6 +248,27 @@ Private instances MUST be administered through AWS Systems Manager. With deny-by
 ### 6.5 Database patching
 
 The POC database has no Internet route. Its base image therefore preinstalls MySQL. Later database lifecycle work belongs to `audit-hardening`, where MySQL moves off EC2 to a managed RDS/Aurora target.
+
+### 6.6 Audit-hardening extension (this branch)
+
+The preceding network diagram and rule register describe the inherited
+**`main` baseline**. This branch additionally declares:
+
+- an isolated `database-b` subnet in `us-east-1b`, alongside `database-a` in
+  `us-east-1a`;
+- private Multi-AZ MySQL 8.4 RDS with AWS-managed KMS encryption, managed
+  master credentials, seven-day automated backups and deletion protection;
+- security-group rules permitting RDS MySQL access from the application and
+  the original EC2 database migration source, with no public DB ingress;
+- an AWS WAF regional web ACL associated with the existing ALB;
+- a regional GuardDuty detector, adopted by import if one already exists.
+
+The EC2 MySQL instance and DLM snapshots remain part of the managed baseline
+until a separately authorized retirement. Terraform creates the hardening
+resources but **does not** copy data, cut over the application, or remove the
+old database. The detailed ordering, import and rollback procedure is in
+[`docs/03_audit_hardening.md`](03_audit_hardening.md). AWS Config and Security
+Hub are **not** enabled by this branch.
 
 ## 7. DNS and certificates
 
@@ -300,7 +325,8 @@ myorg-aws/
 ├── docs/
 │   ├── 01_architecture.md
 │   ├── 02_poc_adoption.md
-│   └── 03_boot_artifact_boundary.md
+│   ├── 03_audit_hardening.md
+│   └── architecture/
 ├── modules/
 │   ├── terraform-state/
 │   ├── vpc/
@@ -310,7 +336,10 @@ myorg-aws/
 │   ├── acm/
 │   ├── firewall/
 │   ├── ec2/
-│   └── dlm/
+│   ├── dlm/
+│   ├── rds/
+│   ├── waf/
+│   └── guardduty/
 ├── deployments/
 │   └── myorg/
 │       └── poc/
@@ -323,13 +352,22 @@ myorg-aws/
 │               ├── acm/
 │               ├── firewall/
 │               ├── ec2/
-│               └── dlm/
+│               ├── dlm/
+│               ├── rds/
+│               ├── waf/
+│               └── guardduty/
 ├── images/
 │   └── myorg/poc/use1/
 │       ├── application/
 │       └── database/
 ├── .github/workflows/
 ├── scripts/
+│   ├── aws-brownfield-seed.sh
+│   ├── build-architecture-graph.py
+│   ├── build-planned-architecture-graph.py
+│   ├── import-self-signed-cert.sh
+│   ├── migrate-mysql-ec2-to-rds.sh
+│   └── seed/
 └── Taskfile.yml
 ```
 
@@ -411,11 +449,15 @@ Stage 0 is acceptable when:
 10. Does the existing ASG use a launch configuration or launch template?
 11. What is the approved budget for Network Firewall versus a managed/self-operated proxy?
 
-## 13. Out of scope and future branches
+## 13. Baseline exclusions and branch evolution
 
-The following are explicit subsequent stages and MUST NOT be silently folded into `main`:
+The following are outside the `main` network-control baseline. Features from
+later stages MUST NOT be silently folded into the baseline:
 
-- `audit-hardening`: migrate MySQL from EC2 to a managed RDS/Aurora target selected from workload, RTO/RPO, availability, and cost requirements; add stronger backup/restore, encryption/KMS, security monitoring, audit evidence, WAF/GuardDuty/Config/Security Hub where justified, FinOps controls, and production hardening;
+- `audit-hardening` (**this branch**): declares Multi-AZ MySQL RDS, encryption,
+  managed backups, WAF and GuardDuty; the EC2-to-RDS data cutover remains a
+  reviewed manual procedure. It does not enable AWS Config or Security Hub,
+  and it does not claim completed production hardening or audit certification;
 - `modernized-pulumi`: containerize the application and implement the target platform with Pulumi TypeScript, preserving the approved security and audit controls from the hardened branch;
 - multi-instance, multi-AZ application availability;
 - any package mirror or baked customer artifact until persistence/ownership policy explicitly permits it;

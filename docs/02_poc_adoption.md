@@ -6,7 +6,9 @@ into `deployments/myorg/poc/use1/vpc`. Compute imports into
 `deployments/myorg/poc/use1/ec2`: database EC2, application Launch Template
 and ASG, three Security Groups, ALB, target group and both HTTP/HTTPS listeners.
 The same EC2 plan may also contain the desired POC configuration changes.
-There is **no separate `deployments/myorg/brownfield/use1/compute` root**.
+There is **no separate `deployments/myorg/brownfield/use1/compute` root in this
+checkout**; earlier versions may nevertheless have left a separate remote state
+that still owns Compute objects (see section 6).
 
 **Before any EC2 replacement:** the checked-in public Ubuntu AMI parameters are a seed-adoption fallback, not complete POC images. A fresh private database EC2 requires MySQL, `jq` and AWS CLI; the app image requires the `myorg-poc-app` systemd service. Build the Packer images and switch both `ami_ssm_parameter` settings to their published SSM parameters before launching replacements. The isolated database subnet has no package-download Internet route.
 The ACM certificate is referenced separately through the `acm` stack.
@@ -72,8 +74,9 @@ Options: `SEED_APP_INSTANCE_TYPE` and `SEED_DB_INSTANCE_TYPE` default to
 executes it. `SEED_CERT_ARN` reuses an **external, non-seed-owned** ACM
 certificate. Otherwise a self-signed test cert, PEM and 0600 private key are
 generated. The key and JSON manifest live under `.terraform/seed/`, are
-gitignored, and **must be safeguarded**; Terraform remote state will also
-contain sensitive ACM key material. Browser TLS warnings are expected.
+gitignored, and **must be safeguarded**. The `acm` module's `imported` mode
+references only the certificate ARN; it does not store that private key in
+Terraform state. Browser TLS warnings are expected.
 
 ```bash
 aws elbv2 describe-target-health --profile "$AWS_PROFILE" --region us-east-1 \
@@ -127,7 +130,8 @@ terraform -chdir="$STATE_ROOT" init -migrate-state \
 
 Confirm the backend migration prompt and avoid accidentally managing the
 same bucket from two independent states. Backend encryption and access
-restrictions matter because a self-signed ACM private key enters state.
+restrictions still matter because Terraform state and saved plans may contain
+other sensitive infrastructure data; the imported ACM ARN is not its key.
 
 ## 5. Import the custom VPC and all seeded routes
 
@@ -160,6 +164,73 @@ manifest-driven import blocks; `imports_http.tf` contains the tenth, for the
 existing HTTP/80 listener. All blocks use the existing seed manifest and
 Terraform addresses under `module.ec2`.
 
+**Before planning EC2, deploy its upstream states.** The EC2 module reads the
+VPC, IAM, logging, and ACM remote states even when the ALB config contains an
+explicit certificate ARN. The VPC state was prepared in section 5. Set the
+real seed certificate ARN in both `acm/config/certificate.yml` and
+`ec2/config/compute.yml` (under `alb.certificate_arn`); the checked-in ARN is
+account-specific. In the current ACM `imported` mode, a Route 53 state is not
+needed for ACM, but the separate `full` workflow still deploys Route 53.
+
+Prepare IAM, logging, and ACM individually. For each stack, initialize its
+S3 backend, save and inspect its plan, and apply **only its reviewed plan**:
+
+```bash
+export IAM_ROOT=deployments/myorg/poc/use1/iam
+terraform -chdir="$IAM_ROOT" init -backend-config="bucket=$TF_STATE_BUCKET"
+terraform -chdir="$IAM_ROOT" plan -out=iam.tfplan
+terraform -chdir="$IAM_ROOT" show iam.tfplan
+# After review and approval:
+terraform -chdir="$IAM_ROOT" apply iam.tfplan
+
+export LOGGING_ROOT=deployments/myorg/poc/use1/logging
+terraform -chdir="$LOGGING_ROOT" init -backend-config="bucket=$TF_STATE_BUCKET"
+terraform -chdir="$LOGGING_ROOT" plan -out=logging.tfplan
+terraform -chdir="$LOGGING_ROOT" show logging.tfplan
+# After review and approval:
+terraform -chdir="$LOGGING_ROOT" apply logging.tfplan
+
+export ACM_ROOT=deployments/myorg/poc/use1/acm
+terraform -chdir="$ACM_ROOT" init -backend-config="bucket=$TF_STATE_BUCKET"
+terraform -chdir="$ACM_ROOT" plan -out=acm.tfplan
+terraform -chdir="$ACM_ROOT" show acm.tfplan
+# After review and approval:
+terraform -chdir="$ACM_ROOT" apply acm.tfplan
+```
+
+The checked-in public Ubuntu AMI parameters are suitable only for seed
+adoption, **not** for launching replacement POC instances. Before approving
+an EC2 plan that replaces the application or database, build both Packer AMIs
+using `task image:build IMAGE=application` and
+`task image:build IMAGE=database` (requires Task and Packer), then change
+the two `ami_ssm_parameter` values in `ec2/config/compute.yml` to
+`/myorg/poc/use1/ami/application` and `/myorg/poc/use1/ami/database`.
+Review database backup/recovery before any instance replacement.
+
+The minimal `main` network control also requires the independent firewall
+stack. It is a **new** Network Firewall/NAT deployment, not a seed import.
+Prepare it before the EC2 upgrade so the target application's private-subnet
+egress route is in place:
+
+```bash
+export FIREWALL_ROOT=deployments/myorg/poc/use1/firewall
+terraform -chdir="$FIREWALL_ROOT" init -backend-config="bucket=$TF_STATE_BUCKET"
+terraform -chdir="$FIREWALL_ROOT" plan -out=firewall.tfplan
+terraform -chdir="$FIREWALL_ROOT" show firewall.tfplan
+# After review and approval of the routing and firewall changes:
+terraform -chdir="$FIREWALL_ROOT" apply firewall.tfplan
+```
+
+**If an earlier brownfield Compute state already owns these AWS objects:**
+before importing into the POC EC2 state, use the original state/root to back
+up `terraform state pull` output, inspect `terraform state list`, and remove
+with `terraform state rm` only those among the ten seeded Compute resources
+that the old state actually owns.
+The older root is not included in this checkout, so its addresses must be
+verified from that state rather than guessed here. `state rm` only removes
+Terraform ownership; it must not destroy AWS resources. Do not run the old
+root's plan/apply afterward or let two states manage the same objects.
+
 The seeded application EC2 is managed by its ASG and is **not** imported as
 `aws_instance`. The ALB HTTPS listener and HTTP listener are separate imports.
 The seed-owned ACM certificate is **not** imported by this EC2 root. The
@@ -185,28 +256,30 @@ differs from the desired POC. In particular, changing the database EC2
 subnet may force replacement and loss of its local MySQL data. Review those
 actions and data impact before applying the saved plan.
 
-A previously imported `brownfield/use1/compute` state, if it exists, is **not**
-read or modified by this procedure. Do not run any old `brownfield` root
-against the same AWS objects again. The old state is not an input to the new
-import; the exact destination addresses and AWS IDs come from this root and
-`TF_SEED_MANIFEST`. Avoid concurrent Terraform management of those objects.
+An earlier brownfield state is not an input to these import blocks: the final
+resource addresses and AWS IDs come from this root and `TF_SEED_MANIFEST`.
+Complete the conditional state-ownership transfer above before this import;
+do not leave both states managing the same AWS objects.
 
-## 7. Stage 0 minimum firewall, followed by the other branches
+## 7. Complete the `main` POC and distinguish the later branches
 
 The `main` EC2 import plan may include SG hardening and application/database
-changes. The `deployments/myorg/poc/use1/firewall` Network Firewall/NAT, SNI
-allowlist and route controls belong to their own Terraform root and state.
-That firewall is **new Terraform remediation**, not an import from the manual
-seed. Review network path changes and affected traffic explicitly.
+changes. Together with the independently applied Network Firewall/NAT, SNI
+allowlist, and route controls, **the result of the reviewed adoption/upgrade
+is the minimum viable POC for PCI-DSS 1.3.1/1.3.2**. The imported seed by
+itself is not that result. Review network path changes and affected traffic.
 
 The POC `ec2` root describes the target architecture **and** imports the
 initial seeded objects. Its plan can therefore contain replacements. Database
 migration, traffic cutover, rollback and eventual decommission are not proven
 by an import declaration:
 
-1. `main`: manual seed → Terraform VPC + EC2 imports and reviewed POC upgrades → minimum PCI firewall.
-2. `audit-hardening`: additional CloudTrail/Config/GuardDuty/KMS/WAF/backup
-   controls and explicit **MySQL EC2 → RDS** migration.
+1. `main`: manual seed → VPC import → required POC states and firewall →
+   EC2 import plus reviewed minimum PCI network remediation in the final roots.
+2. `audit-hardening`: Multi-AZ RDS MySQL with encryption and backups, WAF and
+   GuardDuty, followed by an explicit reviewed **MySQL EC2 → RDS** data
+   migration ([runbook](03_audit_hardening.md)). AWS Config and Security Hub
+   are not enabled in this branch.
 3. `modernized-pulumi`: **Pulumi TypeScript + ECS/Fargate** for the app;
    database remains RDS.
 

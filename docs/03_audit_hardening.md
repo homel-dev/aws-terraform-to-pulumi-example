@@ -38,9 +38,13 @@ aws guardduty list-detectors --region us-east-1 --output json
 ```
 
 If a detector already exists, import its ID into the GuardDuty root
-before running the apply:
+before running the apply. Set `TF_STATE_BUCKET` as in
+[the state-backend procedure](02_poc_adoption.md#4-initialize-the-encrypted-remote-state-backend)
+and initialize **this root's own backend** before import:
 
 ```bash
+terraform -chdir=deployments/myorg/poc/use1/guardduty init \
+  -backend-config="bucket=$TF_STATE_BUCKET"
 terraform -chdir=deployments/myorg/poc/use1/guardduty import \
   module.guardduty.aws_guardduty_detector.regional DETECTOR_ID
 ```
@@ -54,8 +58,8 @@ second detector via another Terraform state root in the same account/Region.
 managed by the old EC2 or logging states.** Terraform `moved` blocks cannot
 move resources between two independently configured remote backends. Inspect
 both state files and migrate the exact resource addresses with a controlled,
-backed-up cross-state operation before running a plan or apply. This patch does
-not automatically modify remote states.
+backed-up cross-state operation before running a plan or apply. This branch
+does not automatically modify remote states.
 
 For an earlier modular audit-hardening apply, the old-to-new address mapping is:
 

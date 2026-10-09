@@ -36,7 +36,7 @@ tasks:
     cmds:
       - |
         .venv/bin/python scripts/build-planned-architecture-graph.py \
-          --bucket "${TF_STATE_BUCKET:-myorg-aws-terraform-state-681578444202}" \
+          --bucket "$TF_STATE_BUCKET" \
           --profile "${AWS_PROFILE:-default}" \
           --output docs/architecture/myorg-poc-use1-planned.tvg.json
         .venv/bin/terravision draw \

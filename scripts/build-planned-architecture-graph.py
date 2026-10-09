@@ -49,7 +49,7 @@ def fetch_states(bucket: str, profile: str, region: str) -> dict:
             destination = Path(directory) / f"{stack}.tfstate"
             subprocess.run(
                 [
-                    "/home/salieksanov/.local/bin/aws", "--profile", profile, 
+                    "aws", "--profile", profile,
                     "--region", region, "s3", "cp",
                     f"s3://{bucket}/myorg/poc/use1/{stack}/terraform.tfstate",
                     str(destination), "--only-show-errors",
