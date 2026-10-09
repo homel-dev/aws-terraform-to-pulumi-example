@@ -1,0 +1,4 @@
+name: myorg-poc-use1-modernized
+runtime: nodejs
+main: ../../../../../modules/pulumi/platform/index.ts
+description: Full AWS target platform, composed from reusable Pulumi TypeScript components

@@ -1,0 +1,7 @@
+approved_ingress_cidrs:
+  # RFC 5737 TEST-NET: replace with an approved client source before deployment.
+  - 203.0.113.10/32
+enable_guardduty: true
+waf_rules:
+  - AWSManagedRulesAmazonIpReputationList
+  - AWSManagedRulesCommonRuleSet

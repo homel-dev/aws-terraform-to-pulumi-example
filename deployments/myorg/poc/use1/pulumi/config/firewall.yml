@@ -1,0 +1,8 @@
+name: egress
+application_subnet: app-a
+firewall_subnet: firewall-a
+nat_public_subnet: public-a
+allowed_tls_domains:
+  - example.com
+  - secureweb.com
+log_retention_days: 30

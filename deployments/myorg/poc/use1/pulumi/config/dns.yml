@@ -1,0 +1,8 @@
+# These documentation-only names have no delegated public DNS authority.
+# Set the real delegated zone and hostname before a real deployment.
+zone_name: poc.example.com
+application_domain: app.poc.example.com
+certificate_mode: managed_dns
+# For an imported, already-issued ACM cert instead:
+# certificate_mode: imported
+# imported_certificate_arn: arn:aws:acm:us-east-1:ACCOUNT:certificate/UUID

@@ -1,0 +1,10 @@
+subnet_names: [app-a]
+public_subnet_names: [public-a, public-b]
+app_port: 8080
+health_check_path: /
+desired_count: 0
+image_tag: poc-v1
+artifact_url: https://example.com/
+artifact_sha256: ""
+runtime_https_url: https://secureweb.com/
+log_retention_days: 30

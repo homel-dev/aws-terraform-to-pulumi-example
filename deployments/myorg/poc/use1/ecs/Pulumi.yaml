@@ -1,3 +1,0 @@
-name: myorg-poc-use1-ecs
-runtime: nodejs
-description: Reviewable Pulumi TypeScript ECS/Fargate modernization of the MyOrg POC application

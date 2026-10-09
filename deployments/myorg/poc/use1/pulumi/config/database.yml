@@ -1,0 +1,8 @@
+name: myorg
+port: 3306
+subnet_names: [database-a, database-b]
+engine_version: "8.4"
+instance_class: db.t4g.small
+allocated_storage_gib: 20
+master_username: myorg_admin
+backup_retention_days: 7
