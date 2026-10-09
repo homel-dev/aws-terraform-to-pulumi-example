@@ -21,9 +21,7 @@ resource "aws_vpc_endpoint" "interface" {
   vpc_endpoint_type   = "Interface"
   service_name        = "com.amazonaws.${local.region}.${each.value.service}"
   private_dns_enabled = true
-  subnet_ids = [
-    local.vpc_states[each.value.config_id].subnet_ids[local.configs[each.value.config_id].application.subnet],
-    local.vpc_states[each.value.config_id].subnet_ids[local.configs[each.value.config_id].database.subnet],
-  ]
+  # One subnet per AZ. The POC application and database subnets share one AZ.
+  subnet_ids = [local.vpc_states[each.value.config_id].subnet_ids[local.configs[each.value.config_id].application.subnet]]
   security_group_ids = [aws_security_group.endpoints[each.value.config_id].id]
 }

@@ -40,7 +40,7 @@ resource "aws_lb_listener" "https" {
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = each.value.alb.tls_policy
-  certificate_arn   = local.acm_certificates[each.key]
+  certificate_arn   = try(each.value.alb.certificate_arn, local.acm_certificates[each.key])
 
   default_action {
     type             = "forward"

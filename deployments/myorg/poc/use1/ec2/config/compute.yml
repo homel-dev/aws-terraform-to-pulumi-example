@@ -5,6 +5,8 @@ approved_ingress_cidrs:
 alb:
   public_subnets: [public-a, public-b]
   tls_policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+  # Seed-owned ACM certificate; overrides an outdated ACM remote-state output.
+  certificate_arn: arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000
 application:
   subnet: app-a
   port: 8080
