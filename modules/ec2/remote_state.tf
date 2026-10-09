@@ -52,6 +52,11 @@ locals {
     for id, config in local.configs : id => data.terraform_remote_state.logging.outputs.loggings[config.logging_key]
   }
   acm_certificates = {
-    for id, config in local.configs : id => data.terraform_remote_state.acm.outputs.certificate_arns[config.acm_key]
+    # Preexisting ACM state can expose only the legacy singular output.
+    # Keep that state readable until the ACM root has published its map.
+    for id, config in local.configs : id => try(
+      data.terraform_remote_state.acm.outputs.certificate_arns[config.acm_key],
+      data.terraform_remote_state.acm.outputs.certificate_arn
+    )
   }
 }

@@ -2,13 +2,17 @@
 
 This procedure describes the **main-branch initial-state adoption**. AWS CLI
 creates a deliberately vulnerable, manually managed environment in a **new POC
-VPC**, and Terraform imports **every seed-owned resource**. Import preserves
-the initial rules; minimal PCI 1.3.1/1.3.2 remediation is a subsequent change
-in `main`. Full audit hardening and the EC2 MySQL → RDS migration belong to
+VPC**. The VPC root contains working import declarations, but the checked-in
+`poc/use1/ec2` root models the *target* infrastructure. The separate
+`brownfield/use1/compute` root imports the seed topology, but **its state
+is not the POC EC2 state**. The POC EC2 root now has manifest-driven import
+declarations for adopting the existing Compute resources while upgrading them.
+Importing the VPC does not import Compute. Full audit hardening
+and the EC2 MySQL → RDS migration belong to
 `audit-hardening`; Pulumi and ECS/Fargate belong to `modernized-pulumi`.
 
-**This repository contains working implementation and import declarations,
-not proof of an AWS deployment or completed import.** The operator must execute
+**This repository is not proof of an AWS deployment or a completed Compute
+import.** The operator must execute
 the following commands against an isolated AWS account and review each plan.
 
 ## 1. Prerequisites
@@ -45,11 +49,12 @@ contains AWS account/region/IDs and is checked before any teardown.
 | Custom POC VPC and Internet Gateway | 1 + 1 | `deployments/myorg/poc/use1/vpc` |
 | Subnets `public-a`, `public-b`, `app-a`, `database-a`, `firewall-a` | 5 | VPC root |
 | Route tables, associations and public default routes | 5 + 5 + 2 | VPC root |
-| ALB, app and database SGs | 3 | `deployments/myorg/brownfield/use1/compute` |
-| Ubuntu EC2 running MySQL (`myorg_seed` database) | 1 | Compute root `aws_instance.database` |
-| Application EC2, launched by Launch Template + ASG | 1 | Compute root **ASG and Launch Template** |
-| Internet-facing ALB, target group, HTTP and HTTPS listeners | 1 + 1 + 2 | Compute root |
-| Seed-imported, self-signed ACM certificate | 1 | Compute root unless an external certificate is supplied |
+| ALB, app and database SGs | 3 | Brownfield Compute → `poc/use1/ec2` migration |
+| Ubuntu EC2 running MySQL (`myorg_seed` database) | 1 | Brownfield Compute → `poc/use1/ec2` migration |
+| Application EC2, launched by Launch Template + ASG | 1 | Transfer ASG and Launch Template; never import the ASG member as an EC2 instance |
+| Internet-facing ALB, target group, HTTPS listener | 1 + 1 + 1 | Brownfield Compute → `poc/use1/ec2` migration |
+| Legacy HTTP listener | 1 | Must be decommissioned explicitly; no corresponding target POC resource |
+| Seed-owned ACM certificate | 1 | Remains in brownfield Compute state until an explicit ACM ownership transfer/decommission |
 
 The three SGs intentionally have public TCP/80 ingress and unrestricted
 default egress. ALB also allows TCP/443; app allows TCP/8080 from ALB SG;
@@ -147,32 +152,121 @@ terraform -chdir="$VPC_ROOT" plan
 The last plan should be empty except for understood drift. If it proposes
 replacing a route, subnet or VPC, stop and reconcile AWS observations/HCL.
 
-## 6. Import the two EC2 workloads and ALB/SG/ACM objects
+## 6. Move imported Compute into the POC EC2 root and upgrade
 
-This root uses **a separate remote state** from VPC and imports the database
-EC2, ASG application ownership, Launch Template, three SGs, ALB, target
-group and both listeners: **10 resources**, plus the seed-owned ACM
-certificate when present (**11**). The application EC2 is controlled by the
-ASG; there is deliberately no `aws_instance.application` import.
+The source root **exists** at `deployments/myorg/brownfield/use1/compute`.
+Its backend key is `myorg/brownfield/use1/compute/terraform.tfstate`.
+The target root is `deployments/myorg/poc/use1/ec2`, with a **different**
+backend key, `myorg/poc/use1/ec2/terraform.tfstate`. Both roots refer to
+the same seeded AWS account; importing into one does not populate the other.
+
+The source contains 10 unconditional imports and one optional ACM import.
+The target `ec2/imports.tf` deliberately maps **nine** seed-owned resources
+to the keyed addresses in `module.ec2`. It does not import the ASG member as
+a standalone instance. It also does not invent Terraform ownership for the
+seed-only HTTP listener or certificate.
+
+**This is an import plus architecture change.** Unlike the initial VPC import,
+the first POC EC2 plan can contain imports, new resources, in-place changes
+and **replacements**, notably database EC2 (public → private subnet), ALB
+(seed name differs from POC name), and Launch Template. Database replacement
+can destroy its local data, and ALB/ASG modifications can cause downtime.
+Do not approve that plan until the seed MySQL data has been backed up,
+service cutover has been evaluated and the exact replacement actions are
+acceptable. No Terraform state rewrite can make incompatible AWS settings
+match without an AWS change.
+
+Run commands below from the repository root. They are an **operator procedure**;
+the patch does not modify AWS or remote states.
 
 ```bash
-export COMPUTE_ROOT=deployments/myorg/brownfield/use1/compute
-terraform -chdir="$COMPUTE_ROOT" init -backend-config="bucket=$TF_STATE_BUCKET"
-terraform -chdir="$COMPUTE_ROOT" fmt -check
-terraform -chdir="$COMPUTE_ROOT" validate
-terraform -chdir="$COMPUTE_ROOT" plan \
-  -var="seed_manifest_path=$TF_SEED_MANIFEST" -out=import-compute.tfplan
-terraform -chdir="$COMPUTE_ROOT" show import-compute.tfplan
-# Approve ONLY imports, never an unreviewed resource change or replacement.
-terraform -chdir="$COMPUTE_ROOT" apply import-compute.tfplan
-terraform -chdir="$COMPUTE_ROOT" plan -var="seed_manifest_path=$TF_SEED_MANIFEST"
+export BROWNFIELD_COMPUTE_ROOT=deployments/myorg/brownfield/use1/compute
+export EC2_ROOT=deployments/myorg/poc/use1/ec2
+terraform -chdir="$BROWNFIELD_COMPUTE_ROOT" init -backend-config="bucket=$TF_STATE_BUCKET"
+terraform -chdir="$EC2_ROOT" init -backend-config="bucket=$TF_STATE_BUCKET"
+
+# Verify source ownership; these should be populated if the prior import ran.
+terraform -chdir="$BROWNFIELD_COMPUTE_ROOT" state list
+terraform -chdir="$EC2_ROOT" state list
+
+# Save the precise pre-migration remote states in an operator-controlled,
+# private directory before state address changes.
+install -d -m 0700 brownfield-evidence/states
+terraform -chdir="$BROWNFIELD_COMPUTE_ROOT" state pull > brownfield-evidence/states/compute-before.tfstate
+terraform -chdir="$EC2_ROOT" state pull > brownfield-evidence/states/ec2-before.tfstate
+chmod 0600 brownfield-evidence/states/*.tfstate
 ```
 
-Imports change Terraform **ownership**, not resource architecture. If any
-post-import plan shows updates, study the live AWS settings and correct the
-configuration before applying. Do not use `-replace`, `-target` or blanket
-`ignore_changes` to hide drift. Back up the remote-state version.
-Once imported, **never run the AWS CLI seed destroy** against those objects.
+The HTTP/80 listener is not part of the target EC2 module. Before transferring
+ALB ownership, **separately review its deletion** from the source root. This
+prevents an unmanaged HTTP entry point and allows the old ALB to be replaced
+if the approved plan requires it:
+
+```bash
+terraform -chdir="$BROWNFIELD_COMPUTE_ROOT" plan -destroy \
+  -target=aws_lb_listener.http \
+  -var="seed_manifest_path=$TF_SEED_MANIFEST" \
+  -out=retire-http.tfplan
+terraform -chdir="$BROWNFIELD_COMPUTE_ROOT" show retire-http.tfplan
+# Proceed only after explicit review: this deletes the seeded HTTP listener.
+terraform -chdir="$BROWNFIELD_COMPUTE_ROOT" apply retire-http.tfplan
+```
+
+Next, remove **only** the nine addresses in the table from the *old Terraform
+state*. `terraform state rm` forgets objects but does not delete them in AWS.
+After removal, the target `import` blocks can assume ownership. The source
+root must not be planned/applied again as a workload root: its old HCL would
+otherwise propose recreating the forgotten resources.
+
+| Brownfield source address | POC target address |
+| --- | --- |
+| `aws_security_group.alb` | `module.ec2.aws_security_group.alb["compute"]` |
+| `aws_security_group.application` | `module.ec2.aws_security_group.application["compute"]` |
+| `aws_security_group.database` | `module.ec2.aws_security_group.database["compute"]` |
+| `aws_instance.database` | `module.ec2.aws_instance.database["compute"]` |
+| `aws_launch_template.application` | `module.ec2.aws_launch_template.application["compute"]` |
+| `aws_autoscaling_group.application` | `module.ec2.aws_autoscaling_group.application["compute"]` |
+| `aws_lb.this` | `module.ec2.aws_lb.this["compute"]` |
+| `aws_lb_target_group.application` | `module.ec2.aws_lb_target_group.application["compute"]` |
+| `aws_lb_listener.https` | `module.ec2.aws_lb_listener.https["compute"]` |
+
+```bash
+# Each line below alters only the OLD Terraform state; no AWS deletion.
+for address in \
+  aws_security_group.alb \
+  aws_security_group.application \
+  aws_security_group.database \
+  aws_instance.database \
+  aws_launch_template.application \
+  aws_autoscaling_group.application \
+  aws_lb.this \
+  aws_lb_target_group.application \
+  aws_lb_listener.https; do
+  terraform -chdir="$BROWNFIELD_COMPUTE_ROOT" state rm "$address"
+done
+
+terraform -chdir="$EC2_ROOT" plan \
+  -var="seed_manifest_path=$TF_SEED_MANIFEST" -out=adopt-and-upgrade-ec2.tfplan
+terraform -chdir="$EC2_ROOT" show adopt-and-upgrade-ec2.tfplan
+# Review every import AND every create/update/replace/destroy.
+# Apply the saved plan only if its exact effects are authorized.
+terraform -chdir="$EC2_ROOT" apply adopt-and-upgrade-ec2.tfplan
+terraform -chdir="$EC2_ROOT" state list
+terraform -chdir="$EC2_ROOT" plan
+```
+
+The source state retains the seed ACM certificate if it was seed-owned. Its
+private key must remain safeguarded; certificate retirement or transfer into
+the ACM root is a **separate ownership decision**. The POC ACM root currently
+accepts an external ARN as a config input; that is not an import of certificate
+ownership. Until the remaining old root resources are explicitly resolved,
+do not destroy or apply the brownfield Compute root as a whole.
+
+The first POC EC2 plan may now reach the AMI and ACM data sources. To avoid
+missing custom SSM parameters before Packer builds, `compute.yml` uses the
+same public Canonical Ubuntu 24.04 AMI parameter as the seed. The ACM reader
+accepts both the legacy `certificate_arn` and the keyed
+`certificate_arns` outputs.
 
 ## 7. Stage 0 minimum firewall, followed by the other branches
 

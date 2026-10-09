@@ -14,7 +14,9 @@ application:
   min_size: 1
   max_size: 1
   desired_capacity: 1
-  ami_ssm_parameter: /myorg/poc/use1/ami/application
+  # The seed uses the public Ubuntu 24.04 AMI. Change to the custom SSM name
+  # only after Packer has built and published that parameter.
+  ami_ssm_parameter: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
   runtime_https_url: https://secureweb.com/
   bootstrap:
     # The scenario uses example.com as the external boot dependency.
@@ -29,7 +31,7 @@ database:
   port: 3306
   instance_type: t3.micro
   root_volume_gib: 20
-  ami_ssm_parameter: /myorg/poc/use1/ami/database
+  ami_ssm_parameter: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
   name: myorg
   username: myorg_app
 tags:
