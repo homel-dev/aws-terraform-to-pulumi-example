@@ -1,6 +1,6 @@
 locals {
   module_name = basename(path.module)
-  stack_name  = basename(path.root)
+  stack_name  = basename(abspath(path.root))
 
   deployment    = reverse(slice(reverse(split("/", abspath(path.root))), 1, 4))
   business_unit = local.deployment[0]
@@ -9,16 +9,13 @@ locals {
   prefix        = join("-", local.deployment)
   path_prefix   = join("/", local.deployment)
 
-  common_tags = merge(
-    try(local.config.tags, {}),
-    {
-      BusinessUnit = local.business_unit
-      Environment  = local.environment
-      Location     = local.location
-      Region       = local.config.region
-      Stack        = local.stack_name
-      Module       = local.module_name
-      ManagedBy    = "Terraform"
-    }
-  )
+  common_tags = {
+    BusinessUnit = local.business_unit
+    Environment  = local.environment
+    Location     = local.location
+    Region       = local.region
+    Stack        = local.stack_name
+    Module       = local.module_name
+    ManagedBy    = "Terraform"
+  }
 }

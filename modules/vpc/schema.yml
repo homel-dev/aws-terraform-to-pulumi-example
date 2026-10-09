@@ -1,6 +1,7 @@
 ---
 fields:
   region: {type: string, required: true}
+  name: {type: string, required: true}
   state_bucket_prefix: {type: string}
   cidr: {type: string, required: true}
   enable_dns_support: {type: bool}

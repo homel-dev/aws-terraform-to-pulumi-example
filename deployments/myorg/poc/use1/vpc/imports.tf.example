@@ -1,5 +1,5 @@
 # Brownfield example only. Copy to imports.tf and replace IDs after inventory.
 # import {
-#   to = module.vpc.aws_vpc.this
+#   to = module.vpc.aws_vpc.this["vpc"]
 #   id = "vpc-REPLACE_ME"
 # }

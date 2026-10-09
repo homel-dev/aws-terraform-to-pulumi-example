@@ -1,5 +1,5 @@
 provider "aws" {
-  region = local.config.region
+  region = local.region
 
   default_tags {
     tags = local.common_tags

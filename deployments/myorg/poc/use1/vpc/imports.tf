@@ -13,114 +13,114 @@ locals {
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network.vpc_id }
-  to       = module.vpc.aws_vpc.this
+  to       = module.vpc.aws_vpc.this["vpc"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network.internet_gateway_id }
-  to       = module.vpc.aws_internet_gateway.this
+  to       = module.vpc.aws_internet_gateway.this["vpc"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network["subnet_public-a"] }
-  to       = module.vpc.aws_subnet.this["public-a"]
+  to       = module.vpc.aws_subnet.this["vpc/public-a"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network["subnet_public-b"] }
-  to       = module.vpc.aws_subnet.this["public-b"]
+  to       = module.vpc.aws_subnet.this["vpc/public-b"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network["subnet_app-a"] }
-  to       = module.vpc.aws_subnet.this["app-a"]
+  to       = module.vpc.aws_subnet.this["vpc/app-a"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network["subnet_database-a"] }
-  to       = module.vpc.aws_subnet.this["database-a"]
+  to       = module.vpc.aws_subnet.this["vpc/database-a"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network["subnet_firewall-a"] }
-  to       = module.vpc.aws_subnet.this["firewall-a"]
+  to       = module.vpc.aws_subnet.this["vpc/firewall-a"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network["route_table_public-a"] }
-  to       = module.vpc.aws_route_table.this["public-a"]
+  to       = module.vpc.aws_route_table.this["vpc/public-a"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network["route_table_public-b"] }
-  to       = module.vpc.aws_route_table.this["public-b"]
+  to       = module.vpc.aws_route_table.this["vpc/public-b"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network["route_table_app-a"] }
-  to       = module.vpc.aws_route_table.this["app-a"]
+  to       = module.vpc.aws_route_table.this["vpc/app-a"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network["route_table_database-a"] }
-  to       = module.vpc.aws_route_table.this["database-a"]
+  to       = module.vpc.aws_route_table.this["vpc/database-a"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = local.seed_network["route_table_firewall-a"] }
-  to       = module.vpc.aws_route_table.this["firewall-a"]
+  to       = module.vpc.aws_route_table.this["vpc/firewall-a"]
   id       = each.value
 }
 
 import {
-  for_each = local.seed_network == null ? {} : { seed = local.seed_network["route_association_public-a"] }
-  to       = module.vpc.aws_route_table_association.this["public-a"]
+  for_each = local.seed_network == null ? {} : { seed = "${local.seed_network["subnet_public-a"]}/${local.seed_network["route_table_public-a"]}" }
+  to       = module.vpc.aws_route_table_association.this["vpc/public-a"]
   id       = each.value
 }
 
 import {
-  for_each = local.seed_network == null ? {} : { seed = local.seed_network["route_association_public-b"] }
-  to       = module.vpc.aws_route_table_association.this["public-b"]
+  for_each = local.seed_network == null ? {} : { seed = "${local.seed_network["subnet_public-b"]}/${local.seed_network["route_table_public-b"]}" }
+  to       = module.vpc.aws_route_table_association.this["vpc/public-b"]
   id       = each.value
 }
 
 import {
-  for_each = local.seed_network == null ? {} : { seed = local.seed_network["route_association_app-a"] }
-  to       = module.vpc.aws_route_table_association.this["app-a"]
+  for_each = local.seed_network == null ? {} : { seed = "${local.seed_network["subnet_app-a"]}/${local.seed_network["route_table_app-a"]}" }
+  to       = module.vpc.aws_route_table_association.this["vpc/app-a"]
   id       = each.value
 }
 
 import {
-  for_each = local.seed_network == null ? {} : { seed = local.seed_network["route_association_database-a"] }
-  to       = module.vpc.aws_route_table_association.this["database-a"]
+  for_each = local.seed_network == null ? {} : { seed = "${local.seed_network["subnet_database-a"]}/${local.seed_network["route_table_database-a"]}" }
+  to       = module.vpc.aws_route_table_association.this["vpc/database-a"]
   id       = each.value
 }
 
 import {
-  for_each = local.seed_network == null ? {} : { seed = local.seed_network["route_association_firewall-a"] }
-  to       = module.vpc.aws_route_table_association.this["firewall-a"]
+  for_each = local.seed_network == null ? {} : { seed = "${local.seed_network["subnet_firewall-a"]}/${local.seed_network["route_table_firewall-a"]}" }
+  to       = module.vpc.aws_route_table_association.this["vpc/firewall-a"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = "${local.seed_network["route_table_public-a"]}_0.0.0.0/0" }
-  to       = module.vpc.aws_route.public_default["public-a"]
+  to       = module.vpc.aws_route.public_default["vpc/public-a"]
   id       = each.value
 }
 
 import {
   for_each = local.seed_network == null ? {} : { seed = "${local.seed_network["route_table_public-b"]}_0.0.0.0/0" }
-  to       = module.vpc.aws_route.public_default["public-b"]
+  to       = module.vpc.aws_route.public_default["vpc/public-b"]
   id       = each.value
 }

@@ -1,5 +1,6 @@
 ---
 region: us-east-1
+name: myorg-poc-use1
 cidr: 10.42.0.0/16
 subnets:
   public-a: {type: public, availability_zone: us-east-1a, cidr: 10.42.0.0/24}

@@ -1,27 +1,27 @@
-output "vpc_id" {
-  value = aws_vpc.this.id
-}
+output "vpcs" {
+  description = "VPCs indexed by YAML filename (without .yml)."
+  value = {
+    for vpc_key, vpc in aws_vpc.this : vpc_key => {
+      vpc_id              = vpc.id
+      vpc_cidr            = vpc.cidr_block
+      internet_gateway_id = aws_internet_gateway.this[vpc_key].id
 
-output "vpc_cidr" {
-  value = aws_vpc.this.cidr_block
-}
-
-output "internet_gateway_id" {
-  value = aws_internet_gateway.this.id
-}
-
-output "subnet_ids" {
-  value = { for name, subnet in aws_subnet.this : name => subnet.id }
-}
-
-output "subnet_cidrs" {
-  value = { for name, subnet in aws_subnet.this : name => subnet.cidr_block }
-}
-
-output "subnet_availability_zones" {
-  value = { for name, subnet in aws_subnet.this : name => subnet.availability_zone }
-}
-
-output "route_table_ids" {
-  value = { for name, rt in aws_route_table.this : name => rt.id }
+      subnet_ids = {
+        for subnet_key, subnet in local.subnets : subnet.subnet_key => aws_subnet.this[subnet_key].id
+        if subnet.vpc_key == vpc_key
+      }
+      subnet_cidrs = {
+        for subnet_key, subnet in local.subnets : subnet.subnet_key => aws_subnet.this[subnet_key].cidr_block
+        if subnet.vpc_key == vpc_key
+      }
+      subnet_availability_zones = {
+        for subnet_key, subnet in local.subnets : subnet.subnet_key => aws_subnet.this[subnet_key].availability_zone
+        if subnet.vpc_key == vpc_key
+      }
+      route_table_ids = {
+        for subnet_key, subnet in local.subnets : subnet.subnet_key => aws_route_table.this[subnet_key].id
+        if subnet.vpc_key == vpc_key
+      }
+    }
+  }
 }
