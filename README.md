@@ -87,6 +87,14 @@ database EC2, and require explicit review before apply. The target layout includ
 
 The application artifact from `example.com` remains a boot-time dependency in `main`. It is not mirrored or baked into the application AMI until its ownership, persistence, and customer-IP contract is known. See [`docs/03_boot_artifact_boundary.md`](docs/03_boot_artifact_boundary.md).
 
+## Deployed AWS architecture
+
+The diagram below is regenerated from all nine deployed Terraform states after
+a successful GitHub Actions `apply` or `full` run on `main`. It represents
+Terraform-managed resources in AWS, not an unapplied Terraform plan.
+
+![MyOrg POC AWS architecture](docs/architecture/myorg-poc-use1.svg)
+
 ## First deployment order
 
 The Packer builders use the POC VPC public subnet, so first deployment is intentionally staged:

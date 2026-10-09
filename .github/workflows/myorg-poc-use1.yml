@@ -212,3 +212,66 @@ jobs:
     uses: ./.github/workflows/_terraform-stack.yml
     with: {stack: dlm, operation: apply}
     permissions: {contents: read, id-token: write}
+
+  architecture:
+    if: >-
+      ${{
+        always() &&
+        github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/main' &&
+        (
+          (inputs.mode == 'full' && needs.dlm.result == 'success') ||
+          (inputs.mode == 'apply' && needs.selected-stack.result == 'success')
+        )
+      }}
+    needs: [selected-stack, dlm]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Read deployed Terraform states
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          state_dir="$RUNNER_TEMP/myorg-terraform-states"
+          mkdir -p "$state_dir"
+          for stack in terraform-state vpc iam logging route53 acm firewall ec2 dlm; do
+            aws s3 cp \
+              "s3://$TF_STATE_BUCKET/myorg/poc/use1/$stack/terraform.tfstate" \
+              "$state_dir/$stack.tfstate" \
+              --only-show-errors
+          done
+      - name: Build combined TerraVision graph
+        run: |
+          python3 scripts/build-architecture-graph.py \
+            --states-dir "$RUNNER_TEMP/myorg-terraform-states" \
+            --output "$RUNNER_TEMP/myorg-architecture.tvg.json"
+      - name: Install TerraVision renderer
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y graphviz
+          python3 -m venv "$RUNNER_TEMP/terravision-venv"
+          "$RUNNER_TEMP/terravision-venv/bin/pip" install --disable-pip-version-check 'terravision==0.53.0'
+      - name: Render AWS architecture diagram
+        run: |
+          mkdir -p docs/architecture
+          "$RUNNER_TEMP/terravision-venv/bin/terravision" draw \
+            --source "$RUNNER_TEMP/myorg-architecture.tvg.json" \
+            --format svg \
+            --outfile docs/architecture/myorg-poc-use1 \
+            --title 'MyOrg POC us-east-1'
+      - name: Commit updated architecture diagram
+        run: |
+          git add docs/architecture/myorg-poc-use1.svg
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' \
+                -c user.email='github-actions[bot]@users.noreply.github.com' \
+                commit -m 'docs: update deployed AWS architecture [skip ci]'
+            git push origin HEAD:main
+          fi
