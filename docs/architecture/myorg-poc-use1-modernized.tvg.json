@@ -1,0 +1,112 @@
+{
+  "aws_acm_certificate.application": [],
+  "aws_alb.application~1": [
+    "aws_ecs_fargate.application"
+  ],
+  "aws_alb.application~2": [
+    "aws_ecs_fargate.application"
+  ],
+  "aws_cloudtrail.regional_trail": [
+    "aws_s3_bucket.audit"
+  ],
+  "aws_ecr_repository.application": [],
+  "aws_ecs_cluster.application": [],
+  "aws_ecs_fargate.application": [
+    "aws_ecr_repository.application",
+    "aws_networkfirewall_firewall.egress",
+    "aws_rds_mysql.mysql~1",
+    "aws_rds_mysql.mysql~2",
+    "aws_secretsmanager_secret.application_database_credential"
+  ],
+  "aws_group.regional_security": [
+    "aws_guardduty_detector.regional",
+    "aws_wafv2_web_acl.application"
+  ],
+  "aws_group.shared_services": [
+    "aws_acm_certificate.application",
+    "aws_cloudtrail.regional_trail",
+    "aws_ecr_repository.application",
+    "aws_ecs_cluster.application",
+    "aws_s3_bucket.audit",
+    "aws_secretsmanager_secret.application_database_credential"
+  ],
+  "aws_guardduty_detector.regional": [],
+  "aws_internet_gateway.internet_gateway": [],
+  "aws_nat_gateway.nat": [
+    "tv_aws_internet.egress"
+  ],
+  "aws_networkfirewall_firewall.egress": [
+    "aws_nat_gateway.nat"
+  ],
+  "aws_rds_mysql.mysql~1": [],
+  "aws_rds_mysql.mysql~2": [],
+  "aws_route53_record.application_alias": [
+    "aws_wafv2_web_acl.application"
+  ],
+  "aws_route53_record.application_cert_validation": [],
+  "aws_route53_zone.public": [
+    "aws_route53_record.application_alias"
+  ],
+  "aws_s3_bucket.audit": [],
+  "aws_secretsmanager_secret.application_database_credential": [],
+  "aws_subnet.subnet_app_a": [
+    "aws_ecs_fargate.application",
+    "aws_vpc_endpoint.endpoint_ecr_api",
+    "aws_vpc_endpoint.endpoint_ecr_dkr",
+    "aws_vpc_endpoint.endpoint_logs",
+    "aws_vpc_endpoint.endpoint_secretsmanager"
+  ],
+  "aws_subnet.subnet_database_a": [
+    "aws_rds_mysql.mysql~1"
+  ],
+  "aws_subnet.subnet_database_b": [
+    "aws_rds_mysql.mysql~2"
+  ],
+  "aws_subnet.subnet_firewall_a": [
+    "aws_networkfirewall_firewall.egress"
+  ],
+  "aws_subnet.subnet_public_a": [
+    "aws_alb.application~1",
+    "aws_nat_gateway.nat"
+  ],
+  "aws_subnet.subnet_public_b": [
+    "aws_alb.application~2"
+  ],
+  "aws_vpc.vpc": [
+    "aws_internet_gateway.internet_gateway",
+    "aws_vpc_endpoint.endpoint_s3",
+    "tv_aws_az.vpc_us_east_1a",
+    "tv_aws_az.vpc_us_east_1b"
+  ],
+  "aws_vpc_endpoint.endpoint_ecr_api": [],
+  "aws_vpc_endpoint.endpoint_ecr_dkr": [],
+  "aws_vpc_endpoint.endpoint_logs": [],
+  "aws_vpc_endpoint.endpoint_s3": [],
+  "aws_vpc_endpoint.endpoint_secretsmanager": [],
+  "aws_wafv2_web_acl.application": [
+    "aws_alb.application~1",
+    "aws_alb.application~2"
+  ],
+  "tv_aws_az.vpc_us_east_1a": [
+    "aws_subnet.subnet_app_a",
+    "aws_subnet.subnet_database_a",
+    "aws_subnet.subnet_firewall_a",
+    "aws_subnet.subnet_public_a"
+  ],
+  "tv_aws_az.vpc_us_east_1b": [
+    "aws_subnet.subnet_database_b",
+    "aws_subnet.subnet_public_b"
+  ],
+  "tv_aws_internet.egress": [],
+  "tv_aws_region.us_east_1": [
+    "aws_group.regional_security",
+    "aws_group.shared_services",
+    "aws_route53_record.application_alias",
+    "aws_route53_record.application_cert_validation",
+    "aws_route53_zone.public",
+    "aws_vpc.vpc"
+  ],
+  "tv_aws_users.clients": [
+    "aws_route53_record.application_alias"
+  ]
+}
