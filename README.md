@@ -56,7 +56,20 @@ Inside one Terraform stack, normal HCL references and occasional resource-level 
 
 ## Main-branch scope
 
-`main` implements the scenario baseline:
+`main` includes the **manual brownfield starting point, Terraform adoption,
+and minimum PCI 1.3.1/1.3.2 network controls**. The initial infrastructure
+is created by `scripts/aws-brownfield-seed.sh deploy` in a **new custom POC
+VPC**, not in an account's default VPC. Native Terraform import blocks cover
+its VPC, 5 subnets, routes, three security groups, both EC2 workloads (the
+application through its ASG), ALB/listeners and the seed-owned ACM cert.
+See [the executable adoption procedure](docs/02_brownfield_adoption.md) for
+exact commands, preserved vulnerabilities, state bootstrapping, plan-review
+gates and pre-import-only `destroy`.
+
+The existing POC modules also describe the **intended network-controlled
+target layout**. Importing the baseline is not permission to apply the full
+target EC2 root immediately: application/database cutover is a separate
+reviewed migration. The target layout includes:
 
 - dedicated VPC and subnet roles;
 - public HTTPS ALB with finite source allowlist;
