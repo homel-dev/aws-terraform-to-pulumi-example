@@ -1,0 +1,101 @@
+{
+  "aws_alb.ec2_this_compute_1": [
+    "aws_launch_template.ec2_application_compute"
+  ],
+  "aws_alb.ec2_this_compute_2": [
+    "aws_launch_template.ec2_application_compute"
+  ],
+  "aws_autoscaling_group.ec2_application_compute": [
+    "aws_launch_template.ec2_application_compute"
+  ],
+  "aws_cloudtrail.logging_this_audit": [],
+  "aws_db_instance.planned_rds_mysql_multi_az_1": [],
+  "aws_db_instance.planned_rds_mysql_multi_az_2": [],
+  "aws_dlm_lifecycle_policy.dlm_database_database": [],
+  "aws_flow_log.logging_vpc_audit": [],
+  "aws_guardduty_detector.planned_guardduty_regional": [],
+  "aws_instance.ec2_database_compute": [
+    "aws_db_instance.planned_rds_mysql_multi_az_1",
+    "aws_db_instance.planned_rds_mysql_multi_az_2",
+    "aws_vpc_endpoint.ec2_interface_compute_ec2messages",
+    "aws_vpc_endpoint.ec2_interface_compute_secretsmanager",
+    "aws_vpc_endpoint.ec2_interface_compute_ssm",
+    "aws_vpc_endpoint.ec2_interface_compute_ssmmessages"
+  ],
+  "aws_internet_gateway.vpc_this_vpc": [],
+  "aws_launch_template.ec2_application_compute": [
+    "aws_db_instance.planned_rds_mysql_multi_az_1",
+    "aws_db_instance.planned_rds_mysql_multi_az_2",
+    "aws_instance.ec2_database_compute",
+    "aws_vpc_endpoint.ec2_interface_compute_ec2messages",
+    "aws_vpc_endpoint.ec2_interface_compute_secretsmanager",
+    "aws_vpc_endpoint.ec2_interface_compute_ssm",
+    "aws_vpc_endpoint.ec2_interface_compute_ssmmessages"
+  ],
+  "aws_nat_gateway.firewall_this_egress": [],
+  "aws_networkfirewall_firewall.firewall_this_egress": [],
+  "aws_route_table.vpc_this_vpc_app_a": [],
+  "aws_route_table.vpc_this_vpc_database_a": [],
+  "aws_route_table.vpc_this_vpc_firewall_a": [],
+  "aws_route_table.vpc_this_vpc_public_a": [],
+  "aws_route_table.vpc_this_vpc_public_b": [],
+  "aws_s3_bucket.logging_audit_audit": [],
+  "aws_secretsmanager_secret.ec2_database_compute": [],
+  "aws_subnet.planned_database_b": [
+    "aws_db_instance.planned_rds_mysql_multi_az_2"
+  ],
+  "aws_subnet.vpc_this_vpc_app_a": [
+    "aws_autoscaling_group.ec2_application_compute",
+    "aws_vpc_endpoint.ec2_interface_compute_ec2messages",
+    "aws_vpc_endpoint.ec2_interface_compute_secretsmanager",
+    "aws_vpc_endpoint.ec2_interface_compute_ssm",
+    "aws_vpc_endpoint.ec2_interface_compute_ssmmessages"
+  ],
+  "aws_subnet.vpc_this_vpc_database_a": [
+    "aws_db_instance.planned_rds_mysql_multi_az_1",
+    "aws_instance.ec2_database_compute"
+  ],
+  "aws_subnet.vpc_this_vpc_firewall_a": [
+    "aws_networkfirewall_firewall.firewall_this_egress"
+  ],
+  "aws_subnet.vpc_this_vpc_public_a": [
+    "aws_alb.ec2_this_compute_2",
+    "aws_nat_gateway.firewall_this_egress"
+  ],
+  "aws_subnet.vpc_this_vpc_public_b": [
+    "aws_alb.ec2_this_compute_1"
+  ],
+  "aws_vpc.vpc_this_vpc": [
+    "aws_flow_log.logging_vpc_audit",
+    "aws_internet_gateway.vpc_this_vpc",
+    "aws_route_table.vpc_this_vpc_app_a",
+    "aws_route_table.vpc_this_vpc_database_a",
+    "aws_route_table.vpc_this_vpc_firewall_a",
+    "aws_route_table.vpc_this_vpc_public_a",
+    "aws_route_table.vpc_this_vpc_public_b",
+    "tv_aws_az.vpc_this_vpc_us_east_1a",
+    "tv_aws_az.vpc_this_vpc_us_east_1b"
+  ],
+  "aws_vpc_endpoint.ec2_interface_compute_ec2messages": [],
+  "aws_vpc_endpoint.ec2_interface_compute_secretsmanager": [],
+  "aws_vpc_endpoint.ec2_interface_compute_ssm": [],
+  "aws_vpc_endpoint.ec2_interface_compute_ssmmessages": [],
+  "aws_wafv2_web_acl.planned_waf_alb": [
+    "aws_alb.ec2_this_compute_1",
+    "aws_alb.ec2_this_compute_2"
+  ],
+  "tv_aws_az.vpc_this_vpc_us_east_1a": [
+    "aws_subnet.vpc_this_vpc_app_a",
+    "aws_subnet.vpc_this_vpc_database_a",
+    "aws_subnet.vpc_this_vpc_firewall_a",
+    "aws_subnet.vpc_this_vpc_public_a"
+  ],
+  "tv_aws_az.vpc_this_vpc_us_east_1b": [
+    "aws_subnet.planned_database_b",
+    "aws_subnet.vpc_this_vpc_public_b"
+  ],
+  "tv_aws_region.us_east_1": [
+    "aws_guardduty_detector.planned_guardduty_regional",
+    "aws_vpc.vpc_this_vpc"
+  ]
+}
