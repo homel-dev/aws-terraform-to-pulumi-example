@@ -1,6 +1,6 @@
 # Audit-hardening: RDS migration, GuardDuty and WAF
 
-This branch adds three independent Terraform roots and S3 state keys under
+The `audit-hardening` stage adds three independent Terraform roots and S3 state keys under
 `myorg/poc/use1`: `rds`, `waf`, and `guardduty`. They invoke the reusable
 modules in `modules/rds`, `modules/waf`, and `modules/guardduty`. The original
 `ec2` and `logging` roots do not own these resources.
@@ -38,9 +38,13 @@ aws guardduty list-detectors --region us-east-1 --output json
 ```
 
 If a detector already exists, import its ID into the GuardDuty root
-before running the apply:
+before running the apply. Set `TF_STATE_BUCKET` as in
+[the state-backend procedure](02_poc_adoption.md#4-initialize-the-encrypted-remote-state-backend)
+and initialize **this root's own backend** before import:
 
 ```bash
+terraform -chdir=deployments/myorg/poc/use1/guardduty init \
+  -backend-config="bucket=$TF_STATE_BUCKET"
 terraform -chdir=deployments/myorg/poc/use1/guardduty import \
   module.guardduty.aws_guardduty_detector.regional DETECTOR_ID
 ```
@@ -54,8 +58,8 @@ second detector via another Terraform state root in the same account/Region.
 managed by the old EC2 or logging states.** Terraform `moved` blocks cannot
 move resources between two independently configured remote backends. Inspect
 both state files and migrate the exact resource addresses with a controlled,
-backed-up cross-state operation before running a plan or apply. This patch does
-not automatically modify remote states.
+backed-up cross-state operation before running a plan or apply. These
+configurations do not automatically modify remote states.
 
 For an earlier modular audit-hardening apply, the old-to-new address mapping is:
 
@@ -133,6 +137,6 @@ on Terraform destroy. Multi-AZ RDS, GuardDuty and WAF introduce recurring AWS
 charges. WAF uses the AWS-managed IP Reputation and Common Rule groups with
 their blocking actions, so false positives can reject legitimate requests.
 
-The branch does not enable AWS Config or Security Hub. GitHub Actions adds the
+The `audit-hardening` Terraform stage does not enable AWS Config or Security Hub. GitHub Actions adds the
 three new roots to plan/apply selections, PR plans, full-location ordering and
 deployed-state architecture generation without changing permissions.

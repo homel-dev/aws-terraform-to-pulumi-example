@@ -124,11 +124,11 @@ def planned_resources(root: Path) -> list[dict]:
         path.stem: yaml.safe_load(path.read_text())
         for path in directory.glob("*.yml")
     }
-    for required in ("location", "vpc", "firewall", "database", "application", "dns", "security", "logging"):
+    for required in ("vpc", "firewall", "database", "application", "dns", "security", "logging"):
         if required not in config:
             raise ValueError(f"Missing Pulumi config: {directory / (required + '.yml')}")
 
-    region = config["location"]["region"]
+    region = yaml.safe_load((directory.parent.parent / "location.yml").read_text())["region"]
     vpc = config["vpc"]
     app = config["application"]
     firewall = config["firewall"]

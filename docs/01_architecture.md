@@ -46,6 +46,8 @@ The CDE boundary MUST be stated before any rule is evaluated.
 |---|---|---|
 | Application EC2 instance | **In CDE** | Processes cardholder data |
 | MySQL EC2 instance | **In CDE** | Stores cardholder data |
+| ECS/Fargate application (`modernized-pulumi`) | **In CDE** | Intended replacement application runtime |
+| Multi-AZ RDS MySQL (`audit-hardening` / `modernized-pulumi`) | **In CDE** | Target database, only after an approved cutover |
 | ALB | Connected-to | Terminates TLS and forwards to the CDE |
 | Network Firewall / proxy, NAT, VPC endpoints | Security-impacting | Control CDE egress and administration |
 
@@ -199,7 +201,10 @@ The POC deploys exactly this baseline:
 - SSM/Secrets Manager interface endpoints;
 - security groups and a managed prefix list per section 5;
 - VPC Flow Logs, CloudTrail, ALB access logs, firewall logs, and DLM snapshots for the DB volume;
-- optional Route 53 and ACM DNS-validation stacks when a real delegated domain is available.
+- optional ACM DNS validation when a real delegated domain is available. The
+  checked-in Route 53 config uses the public `poc.example.com` placeholder,
+  and the Terraform `full` workflow applies that stack even when ACM uses an
+  imported certificate.
 
 A managed database and a multi-instance application tier are **not** part of `main` (section 13).
 
@@ -244,6 +249,25 @@ Private instances MUST be administered through AWS Systems Manager. With deny-by
 ### 6.5 Database patching
 
 The POC database has no Internet route. Its base image therefore preinstalls MySQL. Later database lifecycle work belongs to `audit-hardening`, where MySQL moves off EC2 to a managed RDS/Aurora target.
+
+### 6.6 Extensions implemented in later branches
+
+The preceding network diagram and rule register describe the **`main` EC2
+baseline**, not the live status of subsequent deployments.
+
+`audit-hardening` declares a second isolated database subnet, private Multi-AZ
+MySQL RDS with encryption and backups, WAF on the existing ALB and regional
+GuardDuty. The old MySQL EC2 remains until a separate reviewed migration and
+retirement. See [`03_audit_hardening.md`](03_audit_hardening.md).
+
+**`modernized-pulumi` (this branch)** independently declares a new custom VPC,
+controlled egress, private ECS/Fargate application, ECR, two-AZ RDS, ALB,
+ACM/Route 53, private AWS endpoints, WAF, GuardDuty and audit logging via
+Pulumi TypeScript. The application image is only a synthetic fixture; its
+initial desired task count is zero. The program is **not** a Terraform state
+import, an EC2-to-RDS data migration, a DNS switchover or proof of running AWS
+resources. Its topology, deployment decisions and ownership boundary are in
+[`04_modernized_pulumi.md`](04_modernized_pulumi.md).
 
 ## 7. DNS and certificates
 
@@ -292,7 +316,9 @@ Deployment identity is:
 
 `business-unit / environment / location / stack`
 
-Every leaf stack is an independent Terraform root with its own `config/` directory and its own state.
+Each inherited Terraform stack is an independent root with its own `config/`
+directory and S3 state. The Pulumi application has a separate project and
+state backend; it does not read the Terraform states.
 
 ```text
 myorg-aws/
@@ -300,7 +326,10 @@ myorg-aws/
 ├── docs/
 │   ├── 01_architecture.md
 │   ├── 02_poc_adoption.md
-│   └── 03_boot_artifact_boundary.md
+│   ├── 03_audit_hardening.md
+│   ├── 03_boot_artifact_boundary.md
+│   ├── 04_modernized_pulumi.md
+│   └── architecture/
 ├── modules/
 │   ├── terraform-state/
 │   ├── vpc/
@@ -310,7 +339,11 @@ myorg-aws/
 │   ├── acm/
 │   ├── firewall/
 │   ├── ec2/
-│   └── dlm/
+│   ├── dlm/
+│   ├── rds/
+│   ├── waf/
+│   ├── guardduty/
+│   └── pulumi/
 ├── deployments/
 │   └── myorg/
 │       └── poc/
@@ -323,17 +356,33 @@ myorg-aws/
 │               ├── acm/
 │               ├── firewall/
 │               ├── ec2/
-│               └── dlm/
+│               ├── dlm/
+│               ├── rds/
+│               ├── waf/
+│               ├── guardduty/
+│               └── pulumi/
+├── containers/
+│   └── myorg/poc/use1/application/
 ├── images/
 │   └── myorg/poc/use1/
 │       ├── application/
 │       └── database/
 ├── .github/workflows/
 ├── scripts/
+│   ├── aws-brownfield-seed.sh
+│   ├── build-architecture-graph.py
+│   ├── build-modernized-architecture-graph.py
+│   ├── import-self-signed-cert.sh
+│   ├── migrate-mysql-ec2-to-rds.sh
+│   └── seed/
 └── Taskfile.yml
 ```
 
-Reusable infrastructure logic MUST live in `modules/`. Stack configuration MUST live below that stack's own `config/` directory; there is no location-global Terraform configuration file.
+Reusable infrastructure logic lives in `modules/`. The Pulumi project is at
+`deployments/myorg/poc/use1/pulumi/Pulumi.yaml`, with configuration in its
+`config/` directory and program code in `modules/pulumi/`. Its location YAML
+region is inherited from `deployments/myorg/poc/use1/location.yml`; Pulumi's
+separate `aws:region` provider setting must match it.
 
 **State:** the S3 backend bucket MAY be shared, but every stack MUST use its own state object, for example:
 
@@ -411,12 +460,17 @@ Stage 0 is acceptable when:
 10. Does the existing ASG use a launch configuration or launch template?
 11. What is the approved budget for Network Firewall versus a managed/self-operated proxy?
 
-## 13. Out of scope and future branches
+## 13. Baseline exclusions and branch evolution
 
-The following are explicit subsequent stages and MUST NOT be silently folded into `main`:
+The following were excluded from `main`; later branch declarations MUST NOT be
+presented as completed migrations or silently folded into the baseline:
 
-- `audit-hardening`: migrate MySQL from EC2 to a managed RDS/Aurora target selected from workload, RTO/RPO, availability, and cost requirements; add stronger backup/restore, encryption/KMS, security monitoring, audit evidence, WAF/GuardDuty/Config/Security Hub where justified, FinOps controls, and production hardening;
-- `modernized-pulumi`: containerize the application and implement the target platform with Pulumi TypeScript, preserving the approved security and audit controls from the hardened branch;
+- `audit-hardening`: declares RDS, WAF and GuardDuty; its EC2-to-RDS data
+  cutover remains a reviewed manual procedure, and it does not enable AWS
+  Config or Security Hub;
+- `modernized-pulumi` (**this branch**): declares a separate Pulumi TypeScript
+  infrastructure and containerized ECS/Fargate target; no cross-tool state
+  migration, production DNS cutover or EC2 retirement is automatic;
 - multi-instance, multi-AZ application availability;
 - any package mirror or baked customer artifact until persistence/ownership policy explicitly permits it;
 - LocalStack validation where it cannot meaningfully reproduce Network Firewall/AWS runtime behavior.

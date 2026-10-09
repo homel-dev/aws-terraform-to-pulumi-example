@@ -80,13 +80,14 @@ export interface EnvironmentConfig {
 }
 
 export function loadEnvironment(): EnvironmentConfig {
-    const configDir = path.join(pulumi.runtime.getRootDirectory(), "config");
+    const root = pulumi.runtime.getRootDirectory();
+    const configDir = path.join(root, "config");
     const read = <T>(filename: string): T => YAML.parse(
         fs.readFileSync(path.join(configDir, filename), "utf8"),
     ) as T;
 
     return {
-        region: read<{region: string}>("location.yml").region,
+        region: (YAML.parse(fs.readFileSync(path.join(root, "..", "location.yml"), "utf8")) as {region: string}).region,
         vpc: read<VpcConfig>("vpc.yml"),
         firewall: read<FirewallConfig>("firewall.yml"),
         logging: read<LoggingConfig>("logging.yml"),

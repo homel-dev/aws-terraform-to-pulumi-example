@@ -96,6 +96,7 @@ export class EcsComponent extends pulumi.ComponentResource {
                 readonlyRootFilesystem: false, // external artifact written only at task start
                 portMappings: [{containerPort: args.applicationPort, hostPort: args.applicationPort, protocol: "tcp"}],
                 environment: [
+                    {name: "MYORG_APP_PORT", value: String(args.applicationPort)},
                     {name: "ARTIFACT_URL", value: args.artifactUrl},
                     {name: "ARTIFACT_SHA256", value: args.artifactSha256},
                     {name: "MYORG_DATABASE_SECRET", value: secretArn},

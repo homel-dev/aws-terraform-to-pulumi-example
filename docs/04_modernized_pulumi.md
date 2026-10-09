@@ -22,15 +22,18 @@ outputs, or adopt an AWS resource automatically.
 | `modules/pulumi/platform/` | Component composition, typed configuration and outputs |
 
 Each implementation exports a `pulumi.ComponentResource` with resource children
-parented to that component. Deployment-specific values live **only** in
-`deployments/myorg/poc/use1/pulumi/config/*.yml`; its `Pulumi.yaml` points
-at the common platform entrypoint under `modules/pulumi/platform/index.ts`.
+parented to that component. Deployment-specific component values live in
+`deployments/myorg/poc/use1/pulumi/config/*.yml`; the region comes from the
+existing parent `deployments/myorg/poc/use1/location.yml`, not a duplicate
+`pulumi/config/location.yml`. The Pulumi `aws:region` provider setting must
+match it. `Pulumi.yaml` points at the common platform entrypoint under
+`modules/pulumi/platform/index.ts`.
 `package.json`, the lockfile and TypeScript configuration also live under
 `modules/pulumi/` instead of the deployment root.
 
-The prior `deployments/myorg/poc/use1/ecs/index.ts` monolith is removed by
-this *incremental patch over the previous Pulumi patch*. Its container fixture
-at `containers/myorg/poc/use1/application/` is retained.
+There is no separate `deployments/myorg/poc/use1/ecs/index.ts` deployment
+monolith in this checkout. The container fixture lives at
+`containers/myorg/poc/use1/application/`.
 
 The older Terraform roots remain available in the repository as the baseline
 and hardening migration source; **they are not dependencies of this Pulumi
@@ -59,6 +62,27 @@ AWS permissions and a configured Pulumi state backend. It does **not** apply
 the preview. GitHub Actions only checks the TypeScript source; it contains no
 automatic `pulumi up` or OIDC credential configuration.
 
+### Planned architecture diagram (Python only)
+
+The checked-in
+[`myorg-poc-use1-modernized.dot.svg`](architecture/myorg-poc-use1-modernized.dot.svg)
+is an **offline schematic** derived from deployment YAML and the known
+Pulumi component topology. It is not a Pulumi preview or an AWS-state diagram.
+The diagram task does **not** run TypeScript, Node/npm, Terraform or AWS CLI.
+It requires Python 3.10+, PyYAML, TerraVision and Graphviz (`dot`). From the
+repository root, after installing Graphviz through the OS package manager:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install PyYAML 'terravision==0.53.0'
+task architecture:modernized
+```
+
+The task calls `scripts/build-modernized-architecture-graph.py`, reading the
+Pulumi `config/*.yml` files plus the parent `use1/location.yml`, and writes
+both `docs/architecture/myorg-poc-use1-modernized.tvg.json` and its SVG.
+Regeneration is a local documentation action, not a deployment.
+
 ## Required decisions before any real `pulumi up`
 
 1. Replace the RFC 5737 example client CIDR in `config/security.yml` with
@@ -74,7 +98,10 @@ automatic `pulumi up` or OIDC credential configuration.
 4. Prepare the **actual application container**. The checked-in `app.py` is
    only a synthetic POC fixture: `/db` checks TCP reachability, not SQL login
    or data parity. Populate the separate application DB credential secret
-   after provisioning; Pulumi deliberately does not store its password.
+   after provisioning; Pulumi deliberately does not store its password. The
+   ECS task passes `MYORG_APP_PORT` from `config/application.yml` to the
+   fixture. This environment variable is mandatory when starting the fixture
+   outside ECS as well; it controls the HTTP listen port.
 5. Review domain-level egress. The SG allows TCP/443, but the application
    subnet route passes through Network Firewall. ECR API/DKR, CloudWatch Logs
    and Secrets Manager have private endpoints, with an S3 gateway endpoint.
