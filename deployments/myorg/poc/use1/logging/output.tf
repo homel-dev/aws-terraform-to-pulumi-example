@@ -13,6 +13,10 @@ output "cloudtrail_arn" {
 output "flow_log_id" {
   value = module.logging.flow_log_id
 }
+
+output "guardduty_detector_id" {
+  value = module.logging.guardduty_detector_id
+}
 output "loggings" {
   value = module.logging.loggings
 }

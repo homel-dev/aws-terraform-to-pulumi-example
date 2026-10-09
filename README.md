@@ -159,5 +159,5 @@ Validation is not deployment evidence. The acceptance tests and evidence contrac
 ## Branch roadmap
 
 - `main` — scenario baseline.
-- `audit-hardening` — RDS/Aurora migration plus stronger encryption, backup, security, and audit evidence.
+- `audit-hardening` — RDS MySQL Multi-AZ, KMS encryption, backups, GuardDuty, WAF and a reviewed database cutover ([runbook](docs/03_audit_hardening.md)).
 - `modernized-pulumi` — containerized target architecture authored with Pulumi TypeScript.
