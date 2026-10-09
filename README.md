@@ -59,17 +59,18 @@ Inside one Terraform stack, normal HCL references and occasional resource-level 
 `main` includes the **manual brownfield starting point, Terraform adoption,
 and minimum PCI 1.3.1/1.3.2 network controls**. The initial infrastructure
 is created by `scripts/aws-brownfield-seed.sh deploy` in a **new custom POC
-VPC**, not in an account's default VPC. Native Terraform import blocks cover
-its VPC, 5 subnets, routes, three security groups, both EC2 workloads (the
-application through its ASG), ALB/listeners and the seed-owned ACM cert.
-See [the executable adoption procedure](docs/02_brownfield_adoption.md) for
+VPC**, not in an account's default VPC. Native Terraform import blocks in the final `poc/use1/vpc` and `poc/use1/ec2`
+roots cover the seeded VPC, five subnets, routes, three security groups,
+database EC2, application Launch Template/ASG, ALB, target group and HTTP/HTTPS
+listeners. ACM certificates are configured in the separate `acm` root.
+See [the adoption procedure](docs/02_poc_adoption.md) for
 exact commands, preserved vulnerabilities, state bootstrapping, plan-review
 gates and pre-import-only `destroy`.
 
 The existing POC modules also describe the **intended network-controlled
-target layout**. Importing the baseline is not permission to apply the full
-target EC2 root immediately: application/database cutover is a separate
-reviewed migration. The target layout includes:
+target layout**. The final EC2 root imports the baseline and can propose the target changes
+in the same reviewed plan; such changes may replace resources, including the
+database EC2, and require explicit review before apply. The target layout includes:
 
 - dedicated VPC and subnet roles;
 - public HTTPS ALB with finite source allowlist;
@@ -103,7 +104,7 @@ The Packer builders use the POC VPC public subnet, so first deployment is intent
 10. dlm
 ```
 
-The stack order is visible in [the location workflow](.github/workflows/myorg-poc-use1.yml). The image workflow is separate: application and database AMIs must already have been built and published to SSM before `ec2` is deployed.
+The stack order is visible in [the location workflow](.github/workflows/myorg-poc-use1.yml). The image workflow is separate. Initial adoption can use the public Ubuntu AMI SSM parameter; custom Packer AMIs require their SSM parameters to have been published before selection.
 
 The order exists because downstream stacks consume outputs from already-created remote states. It is not lifecycle coupling between their states.
 

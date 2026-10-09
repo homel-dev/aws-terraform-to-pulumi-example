@@ -347,7 +347,7 @@ myorg/poc/use1/ec2/terraform.tfstate
 
 The `terraform-state` stack initially uses local state only for the first bucket creation. Immediately after the bucket exists, that state MUST be migrated into its own remote object at `myorg/poc/use1/terraform-state/terraform.tfstate`. It MUST NOT share state with a workload stack.
 
-**Import:** brownfield imports belong to the applicable leaf stack. Import identifiers MUST NOT be embedded in reusable modules. Import is a procedure to adopt the existing environment and is separate from POC deployment.
+**Import:** seeded VPC and Compute resources import directly into the final `poc/use1/vpc` and `poc/use1/ec2` leaf roots. No extra `brownfield` Terraform root is required. Import identifiers MUST NOT be embedded in reusable modules. The EC2 import plan may also contain POC upgrades; every planned update or replacement requires explicit review.
 
 **Images:** Packer builds generic application and MySQL base AMIs. Successful builds publish the AMI IDs to SSM Parameter Store; the `ec2` stack consumes those parameter paths. The application image pipeline MUST NOT retrieve the protected boot artifact.
 

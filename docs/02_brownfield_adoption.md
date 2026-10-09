@@ -1,5 +1,7 @@
 # Brownfield seed, Terraform import, and migration
 
+> **Superseded.** The authoritative, current procedure is [POC seed and direct Terraform adoption](02_poc_adoption.md). The instructions below are retained only for historical reference; do not execute them.
+
 This procedure describes the **main-branch initial-state adoption**. AWS CLI
 creates a deliberately vulnerable, manually managed environment in a **new POC
 VPC**. The VPC root contains working import declarations, but the checked-in
