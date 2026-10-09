@@ -199,7 +199,10 @@ The POC deploys exactly this baseline:
 - SSM/Secrets Manager interface endpoints;
 - security groups and a managed prefix list per section 5;
 - VPC Flow Logs, CloudTrail, ALB access logs, firewall logs, and DLM snapshots for the DB volume;
-- optional Route 53 and ACM DNS-validation stacks when a real delegated domain is available.
+- optional ACM DNS validation when a real delegated domain is available. The
+  checked-in Route 53 configuration currently creates a public
+  `poc.example.com` placeholder zone, and the `full` workflow applies that
+  stack even when ACM uses an imported certificate.
 
 A managed database and a multi-instance application tier are **not** part of `main` (section 13).
 

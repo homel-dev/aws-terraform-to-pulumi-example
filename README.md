@@ -103,9 +103,13 @@ The application artifact from `example.com` remains a boot-time dependency in `m
 
 ## Deployed AWS architecture
 
-The diagram below is the checked-in snapshot rendered from Terraform state data.
-The `main` GitHub Actions workflow updates it after a successful deployment.
-It does not establish that the **current** account still matches the snapshot.
+The diagram below is a checked-in snapshot rendered from Terraform state data.
+The workflow's architecture-rendering job is an experimental path: on `main`, it
+runs after a successful full deployment or selected-stack apply, uses GitHub
+OIDC (not stored AWS access keys), and requires **all nine** S3 state objects.
+It may fail after a valid partial deployment if some states do not yet exist;
+Terraform apply success alone does not guarantee a refreshed diagram. The
+snapshot does not establish that the **current** account still matches it.
 
 ![MyOrg POC AWS architecture](docs/architecture/myorg-poc-use1.dot.svg)
 

@@ -5,6 +5,7 @@
 *.tfstate
 *.tfstate.*
 *.tfplan
+tfplan
 
 .terraform.lock.hcl
 packer_cache/
