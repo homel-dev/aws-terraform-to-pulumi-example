@@ -204,7 +204,7 @@ The POC deploys exactly this baseline:
 A managed database and a multi-instance application tier are **not** part of `main` (section 13).
 
 ```mermaid
-flowchart LR
+flowchart TB
     CLIENT[Approved CIDRs<br/>prefix list] -->|HTTPS 443| ALB[ALB<br/>public subnets, 2 AZ]
     ALB -->|8080| APP[App EC2 / ASG 1-1-1<br/>private subnet]
     APP -->|3306| DB[(MySQL EC2<br/>isolated subnet)]
