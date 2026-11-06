@@ -1,14 +1,16 @@
 # MyOrg AWS Infrastructure POC Architecture
 
-**Status:** Proposed implementation contract.  
-**Repository:** `myorg-aws`  
+**Status:** Source-defined POC architecture; AWS deployment is not verified.
+
+**Repository:** `homel-dev/aws-terraform-to-pulumi-example`
+
 **Canonical path:** `docs/01_architecture.md`
 
-This repository follows the organization-wide policy defined by `homel-dev/.github`:
+This repository follows [HomeLDev organization policy](https://github.com/homel-dev/.github/tree/main/docs):
 
-- `docs/01_engineering_style_guide.md`
-- `docs/02_documentation_style_guide.md`
-- `docs/03_repository_conventions.md`
+- [Engineering Style Guide](https://github.com/homel-dev/.github/blob/main/docs/01_engineering_style_guide.md)
+- [Documentation Style Guide](https://github.com/homel-dev/.github/blob/main/docs/02_documentation_style_guide.md)
+- [Repository Conventions](https://github.com/homel-dev/.github/blob/main/docs/03_repository_conventions.md)
 
 Project documentation defines project-specific architecture and does not duplicate organization policy.
 
@@ -182,7 +184,7 @@ DNS traffic to the Amazon-provided resolver is not represented as a security-gro
 | FW-02 | Network Firewall | TLS SNI `<boot artifact host>`** | Allow | Required artifact retrieval at boot | POC |
 | FW-03 | Network Firewall | everything else | Drop and log | Default deny | POC |
 
-\* Assumed application port, to be confirmed.  
+\* Assumed application port, to be confirmed.
 \** `example.com` is a placeholder. The real hostname, protocol, redirect behavior, ownership, and persistence contract MUST be confirmed.
 
 ## 6. POC target architecture
@@ -298,7 +300,7 @@ Deployment identity is:
 Every leaf stack is an independent Terraform root with its own `config/` directory and its own state.
 
 ```text
-myorg-aws/
+aws-terraform-to-pulumi-example/
 ├── README.md
 ├── docs/
 │   ├── 01_architecture.md

@@ -40,7 +40,7 @@ Key properties:
 - separate Terraform stack/state boundaries;
 - existing EC2-hosted MySQL is retained;
 - the requested network/security controls are added without introducing the later RDS migration;
-- LocalStack provides the local validation path before real AWS execution;
+- local checks are available through the repository Taskfile; no LocalStack deployment is included;
 - AWS deployment remains explicit and controlled.
 
 The important architectural decision in this branch is what it does **not** change.
@@ -79,9 +79,9 @@ The current design includes:
 - deployment-specific configuration separated from reusable infrastructure code;
 - ECS/Fargate application compute;
 - RDS as the database platform;
-- digest-qualified container images;
+- ECR with immutable tags; the current Pulumi ECS task references an image tag, not an image digest;
 - a separate application load-balancing/service path;
-- explicit reuse of infrastructure owned by the preceding Terraform stages where applicable;
+- a separately named Pulumi target and state; earlier Terraform roots are retained as references, not imported or shared Pulumi ownership;
 - no implicit destructive migration of the existing environment.
 
 This branch is review-oriented by default.
@@ -186,7 +186,6 @@ Do not report a command, deployment, preview, or test as successful unless it wa
 Keep these categories separate:
 
 - static source/configuration validation;
-- local emulation or LocalStack validation;
 - Terraform validation or planning;
 - Pulumi type checking or preview;
 - real AWS deployment validation.

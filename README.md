@@ -4,11 +4,11 @@ This example uses a fictional organization called MyOrg. The three branches demo
 
 Terraform proof of concept for the MyOrg PCI-DSS network-control scenario.
 
-The repository follows the organization-wide policy in `homel-dev/.github`. The canonical project contract is [`docs/01_architecture.md`](docs/01_architecture.md).
+The repository follows the [HomeLDev organization standards](https://github.com/homel-dev/.github/tree/main/docs). The canonical project contract is [`docs/01_architecture.md`](docs/01_architecture.md).
 
 ## Branches and evolution
 
-This README describes the three-stage solution, and is intended to be identical in all three branches. The actual deployment code differs by branch:
+This README describes the `main` stage. Each branch has its own implementation, operational guidance, and README:
 
 | Branch | Implementation | Purpose |
 | --- | --- | --- |
@@ -18,7 +18,15 @@ This README describes the three-stage solution, and is intended to be identical 
 
 These are architectural stages, **not** evidence that every resource exists in the target AWS account. Each branch must be planned, applied and verified independently. The deployment directories and commands below document the Terraform **`main` baseline**.
 
-**Before a real deployment:** `ec2/config/compute.yml` still includes the documentation-only ingress CIDR `203.0.113.10/32` and an account-specific imported ACM certificate ARN. Replace the CIDR with the approved client source, ensure the ACM certificate exists in the target account/region, and complete the Packer AMI prerequisite below. The checked-in POC is not a claim of PCI-DSS certification.
+**Before a real deployment:** `ec2/config/compute.yml` still includes the documentation-only ingress CIDR `203.0.113.10/32` and a documentation-only imported ACM certificate ARN placeholder. Replace the CIDR with the approved client source, ensure the ACM certificate exists in the target account/region, and complete the Packer AMI prerequisite below. The checked-in POC is not a claim of PCI-DSS certification.
+
+## Documentation map
+
+- [Architecture and control contract](docs/01_architecture.md) — scenario assumptions, network boundaries, and verification requirements.
+- [Brownfield seed and Terraform adoption](docs/02_poc_adoption.md) — the current operational procedure for the `main` stage.
+- [Boot artifact security boundary](docs/03_boot_artifact_boundary.md) — why the external startup dependency is not silently cached.
+- [Configuration and Terraform state migration](docs/config-migration-note.md) — address and state-move precautions.
+- [Agent and reviewer guidance](AGENTS.md) — scope and verification rules across stages.
 
 ## Repository model
 
@@ -101,7 +109,7 @@ database EC2, and require explicit review before apply. The target layout includ
 
 The application artifact from `example.com` remains a boot-time dependency in `main`. It is not mirrored or baked into the application AMI until its ownership, persistence, and customer-IP contract is known. See [`docs/03_boot_artifact_boundary.md`](docs/03_boot_artifact_boundary.md).
 
-## Deployed AWS architecture
+## Architecture snapshot (not live deployment evidence)
 
 The diagram below is a checked-in snapshot rendered from Terraform state data.
 The workflow's architecture-rendering job is an experimental path: on `main`, it
